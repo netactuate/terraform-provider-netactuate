@@ -2,9 +2,12 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"strconv"
 	"time"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
@@ -19,6 +22,8 @@ var (
 	credentialKeys = []string{"password", "ssh_key_id"}
 	locationKeys   = []string{"location", "location_id"}
 	imageKeys      = []string{"image", "image_id"}
+
+	hostnameRegex = fmt.Sprintf("(%[1]s\\.)*%[1]s$", fmt.Sprintf("(%[1]s|%[1]s%[2]s*%[1]s)", "[a-zA-Z0-9]", "[a-zA-Z0-9\\-]"))
 )
 
 func resourceServer() *schema.Resource {
@@ -34,6 +39,18 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Required: true,
+				ValidateDiagFunc: func(i interface{}, path cty.Path) diag.Diagnostics {
+					var diags diag.Diagnostics
+
+					match, err := regexp.MatchString(hostnameRegex, i.(string))
+					if err != nil {
+						diags = diag.FromErr(err)
+					} else if !match {
+						diags = diag.Errorf("%q is not a valid hostname", i)
+					}
+
+					return diags
+				},
 			},
 			"plan": {
 				Type:     schema.TypeString,
