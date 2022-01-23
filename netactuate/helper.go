@@ -1,0 +1,13 @@
+package netactuate
+
+import (
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
+
+func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
+	err := d.Set(key, value)
+	if err != nil {
+		*diags = append(*diags, diag.Diagnostic{Severity: diag.Error, Summary: err.Error()})
+	}
+}
