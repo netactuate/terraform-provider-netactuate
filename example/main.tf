@@ -3,8 +3,10 @@ provider "netactuate" {}
 resource "netactuate_server" "server" {
   hostname = "vm1.com"
   plan = "VR1x1x25"
-  location_id = 3 //SJC - San Jose, CA
-  image_id = 5348 //Ubuntu 18.04.2 LTS x64 (HVM\/PV)
+  //location_id = 3 // SJC - San Jose, CA
+  location = "SJC - San Jose, CA" // 3
+  image_id = 5726 // Ubuntu 20.04.3 LTS x64
+  //image = "Ubuntu 20.04.3 LTS x64" // 5726
   //password = "password1"
   ssh_key_id = netactuate_sshkey.sshkey.id
 }

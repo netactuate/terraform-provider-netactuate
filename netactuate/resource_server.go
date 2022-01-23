@@ -15,7 +15,11 @@ const (
 	intervalSec = 10
 )
 
-var credentialKeys = []string{"password", "ssh_key_id"}
+var (
+	credentialKeys = []string{"password", "ssh_key_id"}
+	locationKeys   = []string{"location", "location_id"}
+	imageKeys      = []string{"image", "image_id"}
+)
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
@@ -36,15 +40,29 @@ func resourceServer() *schema.Resource {
 				ForceNew: true,
 				Required: true,
 			},
+			"location": {
+				Type:         schema.TypeString,
+				ForceNew:     true,
+				Optional:     true,
+				ExactlyOneOf: locationKeys,
+			},
 			"location_id": {
-				Type:     schema.TypeInt,
-				ForceNew: true,
-				Required: true,
+				Type:         schema.TypeInt,
+				ForceNew:     true,
+				Optional:     true,
+				ExactlyOneOf: locationKeys,
+			},
+			"image": {
+				Type:         schema.TypeString,
+				ForceNew:     true,
+				Optional:     true,
+				ExactlyOneOf: imageKeys,
 			},
 			"image_id": {
-				Type:     schema.TypeInt,
-				ForceNew: true,
-				Required: true,
+				Type:         schema.TypeInt,
+				ForceNew:     true,
+				Optional:     true,
+				ExactlyOneOf: imageKeys,
 			},
 			"password": {
 				Type:         schema.TypeString,
@@ -71,8 +89,12 @@ func resourceServer() *schema.Resource {
 func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*gona.Client)
 
-	s, err := c.CreateServer(d.Get("hostname").(string), d.Get("plan").(string), d.Get("location_id").(int),
-		d.Get("image_id").(int),
+	locationId, imageId, diags := getParams(d, c)
+	if diags != nil {
+		return diags
+	}
+
+	s, err := c.CreateServer(d.Get("hostname").(string), d.Get("plan").(string), locationId, imageId,
 		&gona.ServerOptions{SSHKeyID: d.Get("ssh_key_id").(int), Password: d.Get("password").(string),
 			CloudConfig: d.Get("cloud_config").(string)})
 	if err != nil {
@@ -136,4 +158,60 @@ func wait4Status(serverId int, status string, client *gona.Client) diag.Diagnost
 	}
 
 	return diag.Errorf("Timeout of waiting the server to obtain %q status", status)
+}
+
+func getParams(d *schema.ResourceData, client *gona.Client) (int, int, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	locationId, exists := d.GetOk("location_id")
+	if !exists {
+		location, d := getLocationByName(d.Get("location").(string), client)
+		if d != nil {
+			diags = append(diags, *d)
+		} else {
+			locationId = location.ID
+		}
+	}
+
+	imageId, exists := d.GetOk("image_id")
+	if !exists {
+		image, d := getImageByName(d.Get("image").(string), client)
+		if d != nil {
+			diags = append(diags, *d)
+		} else {
+			imageId = image.ID
+		}
+	}
+
+	return locationId.(int), imageId.(int), diags
+}
+
+func getLocationByName(name string, client *gona.Client) (*gona.Location, *diag.Diagnostic) {
+	locations, err := client.GetLocations()
+	if err != nil {
+		return nil, &diag.FromErr(err)[0]
+	}
+
+	for _, location := range locations {
+		if location.Name == name {
+			return &location, nil
+		}
+	}
+
+	return nil, &diag.Errorf("Provided location %q doesn't exist", name)[0]
+}
+
+func getImageByName(name string, client *gona.Client) (*gona.OS, *diag.Diagnostic) {
+	oss, err := client.GetOSs()
+	if err != nil {
+		return nil, &diag.FromErr(err)[0]
+	}
+
+	for _, os := range oss {
+		if os.Os == name {
+			return &os, nil
+		}
+	}
+
+	return nil, &diag.Errorf("Provided image %q doesn't exist", name)[0]
 }
