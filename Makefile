@@ -16,6 +16,10 @@ release:
 	GOOS=linux GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_linux_amd64
 	GOOS=windows GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_windows_amd64
 
+deps:
+	rm -rf vendor
+	go mod vendor
+
 fmt:
 	go fmt ./...
 

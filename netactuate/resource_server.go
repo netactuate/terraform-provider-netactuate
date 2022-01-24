@@ -140,8 +140,10 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	setValue("hostname", server.Name, d, &diags)
 	setValue("plan", server.Package, d, &diags)
-	setValue("location_id", server.LocationID, d, &diags)
-	setValue("image_id", server.OSID, d, &diags)
+	updateValue("location_id", server.LocationID, d, &diags)
+	updateValue("location", server.Location, d, &diags)
+	updateValue("image_id", server.OSID, d, &diags)
+	updateValue("image", server.OS, d, &diags)
 
 	return diags
 }

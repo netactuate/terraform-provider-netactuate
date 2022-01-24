@@ -3,8 +3,9 @@ module github.com/netactuate/terraform-provider-netactuate
 go 1.17
 
 require (
+	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.10.1
-	github.com/netactuate/gona v0.0.0-20200224103636-ccae035f5091
+	github.com/netactuate/gona v0.0.0-20220124070609-426292801b06
 )
 
 require (
@@ -15,7 +16,6 @@ require (
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320 // indirect
 	github.com/hashicorp/go-hclog v0.16.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.1 // indirect

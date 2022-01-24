@@ -11,3 +11,10 @@ func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag
 		*diags = append(*diags, diag.Diagnostic{Severity: diag.Error, Summary: err.Error()})
 	}
 }
+
+func updateValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
+	_, exists := d.GetOk(key)
+	if exists {
+		setValue(key, value, d, diags)
+	}
+}
