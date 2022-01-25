@@ -4,17 +4,23 @@ NAME=netactuate
 BINARY=terraform-provider-${NAME}
 VERSION=0.0.1
 OS_ARCH=darwin_amd64
-DISTR_DIR=~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+BINARY_NAME=${BINARY}_${VERSION}
+BINARY_FULL_NAME=${BINARY_NAME}_${OS_ARCH}
+DISTR_DIR=~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}
 
 default: install
 
-build:
-	go build -o ${BINARY}
+clear:
+	rm -rf bin
+	rm -rf ${DISTR_DIR}
 
-release:
-	GOOS=darwin GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_darwin_amd64
-	GOOS=linux GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_linux_amd64
-	GOOS=windows GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_windows_amd64
+build: clear
+	go build -o ./bin/${BINARY_FULL_NAME}
+
+release: clear
+	export GOOS=darwin; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
+	export GOOS=linux; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
+	export GOOS=windows; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
 
 deps:
 	rm -rf vendor
@@ -24,8 +30,14 @@ fmt:
 	go fmt ./...
 
 debug:
-	dlv --listen=:50191 --headless=true --api-version=2 --accept-multiclient exec ${DISTR_DIR}/${BINARY} -- --debug
+	dlv --listen=:50191 --headless=true --api-version=2 --accept-multiclient exec ${DISTR_DIR}/${OS_ARCH}/${BINARY_FULL_NAME} -- --debug
 
 install: build
-	mkdir -p ${DISTR_DIR}
-	mv ${BINARY} ${DISTR_DIR}
+	mkdir -p ${DISTR_DIR}/${OS_ARCH}
+	cp bin/${BINARY_FULL_NAME} ${DISTR_DIR}/${OS_ARCH}
+
+install-all: release
+	for os in 'darwin_amd64' 'linux_amd64' 'windows_amd64'; do \
+  		mkdir -p ${DISTR_DIR}/$${os} ; \
+  		cp bin/${BINARY_NAME}_$${os} ${DISTR_DIR}/$${os} ; \
+	done
