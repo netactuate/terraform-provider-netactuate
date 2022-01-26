@@ -18,6 +18,7 @@ build: clear
 	go build -o ./bin/${BINARY_FULL_NAME}
 
 release: clear
+	export GOOS=darwin; export GOARCH=arm64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
 	export GOOS=darwin; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
 	export GOOS=linux; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
 	export GOOS=windows; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
@@ -37,7 +38,7 @@ install: build
 	cp bin/${BINARY_FULL_NAME} ${DISTR_DIR}/${OS_ARCH}
 
 install-all: release
-	for os in 'darwin_amd64' 'linux_amd64' 'windows_amd64'; do \
+	for os in 'darwin_arm64' 'darwin_amd64' 'linux_amd64' 'windows_amd64'; do \
   		mkdir -p ${DISTR_DIR}/$${os} ; \
   		cp bin/${BINARY_NAME}_$${os} ${DISTR_DIR}/$${os} ; \
 	done
