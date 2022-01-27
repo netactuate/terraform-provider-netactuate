@@ -269,6 +269,8 @@ github.com/netactuate/gona v0.0.0-20220124060320-3cadb94aaa9a h1:Nm3/3zNSBi6fh1L
 github.com/netactuate/gona v0.0.0-20220124060320-3cadb94aaa9a/go.mod h1:OHg+8h2OZmCemwXucZeOPYAc9+vvk+gEoNbc1TX7krk=
 github.com/netactuate/gona v0.0.0-20220124070609-426292801b06 h1:IGq8FbkDkyiII6BJigEwVfa8fmXb3lclk4WlNCSZB88=
 github.com/netactuate/gona v0.0.0-20220124070609-426292801b06/go.mod h1:OHg+8h2OZmCemwXucZeOPYAc9+vvk+gEoNbc1TX7krk=
+github.com/netactuate/gona v0.0.0-20220127125643-593ea7da22ba h1:HfdSsgoHCENYx6lbumSn22hdNPK8MHG4LXcnVC3Wam4=
+github.com/netactuate/gona v0.0.0-20220127125643-593ea7da22ba/go.mod h1:OHg+8h2OZmCemwXucZeOPYAc9+vvk+gEoNbc1TX7krk=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce h1:RPclfga2SEJmgMmz2k+Mg7cowZ8yv4Trqw9UsJby758=
 github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce/go.mod h1:uFMI8w+ref4v2r9jz+c9i1IfIttS/OkmLfrk1jne5hs=

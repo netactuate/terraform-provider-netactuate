@@ -57,6 +57,16 @@ func resourceServer() *schema.Resource {
 				ForceNew: true,
 				Required: true,
 			},
+			"package_billing": {
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Optional: true,
+			},
+			"package_billing_contract_id": {
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Optional: true,
+			},
 			"location": {
 				Type:         schema.TypeString,
 				ForceNew:     true,
@@ -111,9 +121,22 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diags
 	}
 
-	s, err := c.CreateServer(d.Get("hostname").(string), d.Get("plan").(string), locationId, imageId,
-		&gona.ServerOptions{SSHKeyID: d.Get("ssh_key_id").(int), Password: d.Get("password").(string),
-			CloudConfig: d.Get("cloud_config").(string)})
+	server := &gona.Server{
+		Name:                     d.Get("hostname").(string),
+		Plan:                     d.Get("plan").(string),
+		LocationID:               locationId,
+		OSID:                     imageId,
+		PackageBilling:           d.Get("package_billing").(string),
+		PackageBillingContractId: d.Get("package_billing_contract_id").(string),
+	}
+
+	options := &gona.ServerOptions{
+		SSHKeyID:    d.Get("ssh_key_id").(int),
+		Password:    d.Get("password").(string),
+		CloudConfig: d.Get("cloud_config").(string),
+	}
+
+	s, err := c.CreateServer(server, options)
 	if err != nil {
 		return diag.FromErr(err)
 	}

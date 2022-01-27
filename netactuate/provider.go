@@ -38,7 +38,8 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create NetActuate API client",
-			Detail:   "Unable to find NetActuate API key",
+			Detail: `Unable to find NetActuate API key. It can be set with either NETACTUATE_API_KEY environment
+variable or 'api_key' property`,
 		})
 		return nil, diags
 	}
