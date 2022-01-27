@@ -1,5 +1,34 @@
 # Terraform Provider NetActuate
 
+## Usage
+
+### Authentication
+There are the following ways of providing credentials for authentication:
+1. Static credentials
+2. Environment variable
+
+#### Static credentials
+> **_NOTE:_** \
+> Hard-coded credentials are not recommended in any Terraform configuration and risks secret leakage should this file
+> ever be committed to a public version control system.
+
+Static credentials can be provided by adding an `api_key` in-line in the provider block:
+```terraform
+provider "netactuate" {
+  api_key = "my-api-key"
+}
+```
+
+#### Environment Variables
+You can provide your credentials via the `NETACTUATE_API_KEY` environment variable, representing your NetActuate API Key:
+```terraform
+provider "netactuate" {}
+```
+```bash
+export NETACTUATE_API_KEY="my-api-key"
+terraform apply
+```
+
 ## Development
 
 ### Run locally
