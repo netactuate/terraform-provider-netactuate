@@ -17,3 +17,9 @@ resource "netactuate_sshkey" "sshkey" {
   name = "default_key"
   key = file("${path.module}/ssh/id_rsa.pub")
 }
+
+resource "netactuate_bgp_sessions" "bgp_sessions" {
+  mbpkgid = netactuate_server.server.id
+  group_id = 3040
+  ipv6 = true
+}

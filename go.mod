@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.10.1
-	github.com/netactuate/gona v0.0.0-20220127125643-593ea7da22ba
+	github.com/netactuate/gona v0.0.0-20220131201829-5b2fc636bcba
 )
 
 require (
@@ -37,6 +37,8 @@ require (
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/zclconf/go-cty v1.9.1 // indirect
+	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
+	go4.org/unsafe/assume-no-moving-gc v0.0.0-20211027215541-db492cf91b37 // indirect
 	golang.org/x/net v0.0.0-20210326060303-6b1517762897 // indirect
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/text v0.3.5 // indirect
@@ -44,4 +46,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200711021454-869866162049 // indirect
 	google.golang.org/grpc v1.32.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
+	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6 // indirect
 )
