@@ -109,6 +109,16 @@ func resourceServer() *schema.Resource {
 				ForceNew: true,
 				Optional: true,
 			},
+			"user_data_base64": {
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Optional: true,
+			},
+			"user_data": {
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -134,6 +144,8 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		SSHKeyID:    d.Get("ssh_key_id").(int),
 		Password:    d.Get("password").(string),
 		CloudConfig: d.Get("cloud_config").(string),
+		UserData64:  d.Get("user_data_base64").(string),
+		UserData:    d.Get("user_data").(string),
 	}
 
 	s, err := c.CreateServer(server, options)
@@ -184,7 +196,19 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
-	return wait4Status(id, "TERMINATED", c)
+	// await termination
+	ret := wait4Status(id, "TERMINATED", c)
+	if ret != nil {
+		return ret;
+	}
+
+	// send a cancel after the VM has been been deleted
+	err = c.CancelServer(id)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
 }
 
 func wait4Status(serverId int, status string, client *gona.Client) diag.Diagnostics {
