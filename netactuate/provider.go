@@ -16,6 +16,10 @@ func Provider() *schema.Provider {
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("NETACTUATE_API_KEY", nil),
 			},
+			"api_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"netactuate_server":       resourceServer(),
@@ -35,6 +39,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	var diags diag.Diagnostics
 
 	apiKey := d.Get("api_key").(string)
+	apiUrl := d.Get("api_url").(string)
 
 	if apiKey == "" {
 		diags = append(diags, diag.Diagnostic{
@@ -46,5 +51,10 @@ variable or 'api_key' property`,
 		return nil, diags
 	}
 
-	return gona.NewClient(apiKey), nil
+	if apiUrl == "" {
+		return gona.NewClient(apiKey), nil
+	} else {
+		return gona.NewClientCustom(apiKey, apiUrl), nil
+	}
+
 }

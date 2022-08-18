@@ -52,3 +52,11 @@ Do the following to run and test the TF provider locally:
     ```bash
     terraform apply
     ```
+
+### Custom API URL
+If necessary, you can override the default NetActuate API URL by specifying a custom `api_url` in the provider block:
+```terraform
+provider "netactuate" {
+  api_url = "https://api.example.com/"
+}
+```
