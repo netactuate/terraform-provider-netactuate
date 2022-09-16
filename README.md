@@ -41,12 +41,12 @@ Do the following to run and test the TF provider locally:
     ```bash
     make install-all
     ```
-3. Install TF providers for the test [example](example):
+3. Install TF providers for the test [example](examples/basic):
     ```bash
     cd example
     terraform init
     ```
-   Every time the provider is re-built, [.terraform.lock.hcl](example/.terraform.lock.hcl) file must be removed and the
+   Every time the provider is re-built, `.terraform.lock.hcl` file must be removed and the
    test example modules re-initialize, because the provider dependency's hash changes
 4. Build the infrastructure:
     ```bash

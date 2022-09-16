@@ -1,7 +1,10 @@
-provider "netactuate" {}
+provider "netactuate" {
+  //api_key = "REDACTED_API_KEY"
+  //api_url = "https://vapi.netactuate.com/"
+}
 
 resource "netactuate_server" "server" {
-  hostname = "vm1.com"
+  hostname = "terraform.example.com"
   plan = "VR1x1x25"
   package_billing = "usage"
   package_billing_contract_id = "6d0037798723523"
@@ -10,6 +13,7 @@ resource "netactuate_server" "server" {
   image_id = 5726 // Ubuntu 20.04.3 LTS x64
   //image = "Ubuntu 20.04.3 LTS x64" // 5726
   //password = "password1"
+  //ssh_key = file("${path.module}/ssh/id_rsa.pub")
   ssh_key_id = netactuate_sshkey.sshkey.id
   //user_data = file("init.sh")
   //user_data_base64 = "IyEvYmluL3NoCmVjaG8gIkhlbGxvIFdvcmxkIiB8IHRlZSAvaGVsbG8ubG9nCg=="
