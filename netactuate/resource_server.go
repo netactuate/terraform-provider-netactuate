@@ -163,7 +163,18 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 
 	d.SetId(strconv.Itoa(s.ServerID))
 
-	return wait4Status(s.ServerID, "RUNNING", c)
+	if _, err := wait4Status(s.ServerID, "RUNNING", c); err != nil {
+		return err
+	}
+
+	server, err := c.GetServer(s.ServerID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
+	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
+
+	return nil
 }
 
 func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -232,11 +243,9 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			}
 
 			// await termination
-			ret := wait4Status(id, "TERMINATED", c)
-			if ret != nil {
-				return ret
+			if _, err := wait4Status(id, "TERMINATED", c); err != nil {
+				return err
 			}
-
 		}
 
 		// unlink if changing location
@@ -287,9 +296,8 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			return diag.FromErr(err)
 		}
 
-		ret := wait4Status(id, "RUNNING", c)
-		if ret != nil {
-			return ret
+		if _, err := wait4Status(id, "RUNNING", c); err != nil {
+			return err
 		}
 	}
 
@@ -310,30 +318,29 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	// await termination
-	ret := wait4Status(id, "TERMINATED", c)
-	if ret != nil {
-		return ret
+	if _, err := wait4Status(id, "TERMINATED", c); err != nil {
+		return err
 	}
 	return nil
 }
 
-func wait4Status(serverId int, status string, client *gona.Client) diag.Diagnostics {
+func wait4Status(serverId int, status string, client *gona.Client) (server gona.Server, d diag.Diagnostics) {
 	for i := 0; i < tries; i++ {
-		s, err := client.GetServer(serverId)
+		server, err := client.GetServer(serverId)
 		if err != nil && i >= 2 {
 			// Retry errors on first few attempts, since sometimes calling GetServer
 			// immediately after creating a server returns an error
 			// ("mbpkgid must be a valid mbpkgid").
-			return diag.FromErr(err)
+			return server, diag.FromErr(err)
 		}
-		if err == nil && s.ServerStatus == status {
-			return nil
+		if err == nil && server.ServerStatus == status {
+			return server, nil
 		}
 
 		time.Sleep(intervalSec * time.Second)
 	}
 
-	return diag.Errorf("Timeout of waiting the server to obtain %q status", status)
+	return server, diag.Errorf("Timeout of waiting the server to obtain %q status", status)
 }
 
 func getParams(d *schema.ResourceData, client *gona.Client) (int, int, diag.Diagnostics) {
