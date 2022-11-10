@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -116,15 +117,18 @@ func resourceServer() *schema.Resource {
 				ForceNew: false,
 				Optional: true,
 			},
-			"user_data_base64": {
-				Type:     schema.TypeString,
-				ForceNew: false,
-				Optional: true,
-			},
 			"user_data": {
 				Type:     schema.TypeString,
 				ForceNew: false,
 				Optional: true,
+			},
+			"primary_ipv4": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"primary_ipv6": {
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
@@ -138,32 +142,28 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diags
 	}
 
-	server := &gona.Server{
-		Name:                     d.Get("hostname").(string),
+	req := &gona.CreateServerRequest{
 		Plan:                     d.Get("plan").(string),
-		LocationID:               locationId,
-		OSID:                     imageId,
+		Location:                 locationId,
+		Image:                    imageId,
+		FQDN:                     d.Get("hostname").(string),
+		SSHKey:                   d.Get("ssh_key").(string),
+		SSHKeyID:                 d.Get("ssh_key_id").(int),
+		Password:                 d.Get("password").(string),
 		PackageBilling:           d.Get("package_billing").(string),
 		PackageBillingContractId: d.Get("package_billing_contract_id").(string),
+		CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
+		ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
 	}
 
-	options := &gona.ServerOptions{
-		SSHKeyID:    d.Get("ssh_key_id").(int),
-		SSHKey:      d.Get("ssh_key").(string),
-		Password:    d.Get("password").(string),
-		CloudConfig: d.Get("cloud_config").(string),
-		UserData64:  d.Get("user_data_base64").(string),
-		UserData:    d.Get("user_data").(string),
-	}
-
-	s, err := c.CreateServer(server, options)
+	s, err := c.CreateServer(req)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(s.ID))
+	d.SetId(strconv.Itoa(s.ServerID))
 
-	return wait4Status(s.ID, "RUNNING", c)
+	return wait4Status(s.ServerID, "RUNNING", c)
 }
 
 func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -179,14 +179,9 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 		return diag.FromErr(err)
 	}
 
-	pkg, err := c.GetPackage(id)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
 	var diags diag.Diagnostics
 
-	if pkg.Installed == 0 {
+	if server.Installed == 0 {
 		setValue("hostname", "", d, &diags)
 		updateValue("image_id", 0, d, &diags)
 		updateValue("image", "", d, &diags)
@@ -199,10 +194,6 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	updateValue("location_id", server.LocationID, d, &diags)
 	updateValue("location", server.Location, d, &diags)
 
-	if pkg.Status == "Active" {
-		setValue("plan", pkg.PlanName, d, &diags)
-	}
-
 	_, exists_location_id := d.GetOk("location_id")
 	_, exists_location := d.GetOk("location")
 	if !exists_location_id && !exists_location {
@@ -214,6 +205,8 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	if !exists_image_id && !exists_image {
 		setValue("image", server.OS, d, &diags)
 	}
+	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
+	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
 
 	return diags
 }
@@ -233,7 +226,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		if oldHost != "" {
 			// delete
-			err = c.DeleteServer(id)
+			err = c.DeleteServer(id, false)
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -241,7 +234,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			// await termination
 			ret := wait4Status(id, "TERMINATED", c)
 			if ret != nil {
-				return ret;
+				return ret
 			}
 
 		}
@@ -277,28 +270,30 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			return diags
 		}
 
-		options := &gona.ServerOptions{
-			SSHKeyID:    d.Get("ssh_key_id").(int),
-			SSHKey:      d.Get("ssh_key").(string),
-			Password:    d.Get("password").(string),
-			CloudConfig: d.Get("cloud_config").(string),
-			UserData64:  d.Get("user_data_base64").(string),
-			UserData:    d.Get("user_data").(string),
+		req := &gona.BuildServerRequest{
+			Location:      locationId,
+			Image:         imageId,
+			FQDN:          d.Get("hostname").(string),
+			SSHKeyID:      d.Get("ssh_key_id").(int),
+			SSHKey:        d.Get("ssh_key").(string),
+			Password:      d.Get("password").(string),
+			CloudConfig:   d.Get("cloud_config").(string),
+			ScriptContent: base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
 		}
 
 		// build name, id, locationId, osId
-		_, err = c.ProvisionServer(d.Get("hostname").(string), id, locationId, imageId, options)
+		_, err = c.BuildServer(id, req)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 
 		ret := wait4Status(id, "RUNNING", c)
 		if ret != nil {
-			return ret;
+			return ret
 		}
 	}
 
-	return resourceServerRead(ctx, d, m);
+	return resourceServerRead(ctx, d, m)
 }
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -309,7 +304,7 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
-	err = c.DeleteServer(id)
+	err = c.DeleteServer(id, true)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -317,24 +312,21 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 	// await termination
 	ret := wait4Status(id, "TERMINATED", c)
 	if ret != nil {
-		return ret;
+		return ret
 	}
-
-	// send a cancel after the VM has been been deleted
-	err = c.CancelServer(id)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
 	return nil
 }
 
 func wait4Status(serverId int, status string, client *gona.Client) diag.Diagnostics {
 	for i := 0; i < tries; i++ {
 		s, err := client.GetServer(serverId)
-		if err != nil {
+		if err != nil && i >= 2 {
+			// Retry errors on first few attempts, since sometimes calling GetServer
+			// immediately after creating a server returns an error
+			// ("mbpkgid must be a valid mbpkgid").
 			return diag.FromErr(err)
-		} else if s.ServerStatus == status {
+		}
+		if err == nil && s.ServerStatus == status {
 			return nil
 		}
 

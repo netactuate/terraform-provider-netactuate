@@ -3,7 +3,7 @@ package netactuate
 import (
 	"context"
 	"strconv"
-	"time"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -14,7 +14,6 @@ func resourceSshKey() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceSshKeyCreate,
 		ReadContext:   resourceSshKeyRead,
-		UpdateContext: resourceSshKeyUpdate,
 		DeleteContext: resourceSshKeyDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -23,10 +22,15 @@ func resourceSshKey() *schema.Resource {
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"key": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
+				StateFunc: func(val any) string {
+					return strings.TrimSpace(val.(string))
+				},
 			},
 			"last_updated": {
 				Type:     schema.TypeString,
@@ -69,27 +73,6 @@ func resourceSshKeyRead(ctx context.Context, d *schema.ResourceData, m interface
 	setValue("key", sshKey.Key, d, &diags)
 
 	return diags
-}
-
-func resourceSshKeyUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
-
-	id, err := strconv.Atoi(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	_, err = c.UpdateSSHKey(id, d.Get("name").(string), d.Get("key").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	err = d.Set("last_updated", time.Now().Format(time.RFC850))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return resourceSshKeyRead(ctx, d, m)
 }
 
 func resourceSshKeyDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

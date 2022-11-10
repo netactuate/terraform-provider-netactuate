@@ -24,12 +24,6 @@ func Provider() *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"netactuate_server":       resourceServer(),
 			"netactuate_sshkey":       resourceSshKey(),
-			"netactuate_bgp_sessions": resourceBGPSessions(),
-		},
-		DataSourcesMap: map[string]*schema.Resource{
-			"netactuate_server":       dataSourceServer(),
-			"netactuate_sshkey":       dataSourceSshKey(),
-			"netactuate_bgp_sessions": dataSourceBGPSessions(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
