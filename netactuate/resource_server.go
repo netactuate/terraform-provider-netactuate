@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
 )
@@ -131,6 +132,14 @@ func resourceServer() *schema.Resource {
 				Computed: true,
 			},
 		},
+		CustomizeDiff: customdiff.Sequence(
+			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
+				return d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname")
+			}),
+			customdiff.ComputedIf("primary_ipv6", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
+				return d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname")
+			}),
+		),
 	}
 }
 
@@ -327,7 +336,7 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 func wait4Status(serverId int, status string, client *gona.Client) (server gona.Server, d diag.Diagnostics) {
 	for i := 0; i < tries; i++ {
 		server, err := client.GetServer(serverId)
-		if err != nil && i >= 2 {
+		if err != nil && i >= 3 {
 			// Retry errors on first few attempts, since sometimes calling GetServer
 			// immediately after creating a server returns an error
 			// ("mbpkgid must be a valid mbpkgid").
