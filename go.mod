@@ -49,4 +49,4 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 )
 
-replace github.com/netactuate/gona => github.com/knyar/gona v0.0.0-20221110173014-89625c8ccf6b
+replace github.com/netactuate/gona => github.com/knyar/gona v0.0.0-20221123220817-e7d949508020
