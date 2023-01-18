@@ -52,4 +52,4 @@ require (
 	inet.af/netaddr v0.0.0-20220811202034-502d2d690317 // indirect
 )
 
-replace github.com/netactuate/gona => ../gona
+replace github.com/netactuate/gona => github.com/craigcpj/gona-dev
