@@ -2,7 +2,7 @@ HOSTNAME=github.com
 NAMESPACE=netactuate
 NAME=netactuate
 BINARY=terraform-provider-${NAME}
-VERSION=0.1.3
+VERSION=0.2.0
 OS_ARCH=darwin_amd64
 BINARY_NAME=${BINARY}_${VERSION}
 BINARY_FULL_NAME=${BINARY_NAME}_${OS_ARCH}
@@ -22,10 +22,7 @@ release: clear
 	export GOOS=darwin; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
 	export GOOS=linux; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
 	export GOOS=windows; export GOARCH=amd64; go build -o ./bin/${BINARY}_${VERSION}_$${GOOS}_$${GOARCH}
-
-deps:
-	rm -rf vendor
-	go mod vendor
+	md5sum ./bin/${BINARY}_${VERSION}_*
 
 fmt:
 	go fmt ./...
