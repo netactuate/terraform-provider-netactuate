@@ -2,7 +2,7 @@
 
 ## Usage
 
-Currently in this stage of development you'll need both gona-dev and terraform-netactuate-provider from this repo.
+Currently in this stage of development you'll need both gona and terraform-netactuate-provider from this repo.
 the go.mod replace expects gona to be ../ from terraform-netactuate-provider.
 
 Basic Steps to test:
