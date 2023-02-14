@@ -7,7 +7,7 @@ the go.mod replace expects gona to be ../ from terraform-netactuate-provider.
 
 Basic Steps to test:
 ```
-git clone gona-dev
+git clone gona
 git clone terraform-netactuate-provider
 
 cd terraform-netactuate-provider
