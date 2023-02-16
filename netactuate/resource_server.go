@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,13 +63,18 @@ func resourceServer() *schema.Resource {
 			},
 			"package_billing": {
 				Type:     schema.TypeString,
-				ForceNew: true,
+				ForceNew: false,
 				Optional: true,
 				Default:  "usage",
 			},
+			"package_billing_opt_in": {
+				Type:     schema.TypeString,
+				ForceNew: false,
+				Optional: true,
+			},
 			"package_billing_contract_id": {
 				Type:     schema.TypeString,
-				ForceNew: true,
+				ForceNew: false,
 				Optional: true,
 			},
 			"location": {
@@ -188,6 +192,29 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		req.ScriptContent = userData64.(string)
 	}
 
+	var packageValue = d.Get("package_billing")
+	if packageValue == "package" {
+		optIn, ok := d.GetOk("package_billing_opt_in")
+		if !ok {
+			return diag.Errorf("when package_billing is set to package, package_billing_opt_in must be set to yes")
+		}
+
+		if optIn.(string) != "yes" {
+			return diag.Errorf("when package_billing is set to package, package_billing_opt_in must be set to yes")
+		}
+	}
+
+	if packageValue == "usage" {
+		contractID, ok := d.GetOk("package_billing_contract_id")
+		if !ok {
+			return diag.Errorf("package_billing_contract_id must be set to your contract ID with NetActuate")
+		}
+
+		if len(contractID.(string)) == 0 {
+			return diag.Errorf("package_billing_contract_id must be set to your contract ID with NetActuate")
+		}
+	}
+
 	s, err := c.CreateServer(req)
 	if err != nil {
 		return diag.FromErr(err)
@@ -256,7 +283,6 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*gona.Client)
-	log.Println("[DEBUG] Updating server")
 	// rebuild on these property changes
 	if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") {
 		id, err := strconv.Atoi(d.Id())
