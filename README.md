@@ -5,8 +5,8 @@ Currently in this stage of development -
 
 Basic Steps to test:
 ```bash
-# Grab the vapi2 branch of the provider:
-git clone --branch vapi2 git@github.com:netactuate/terraform-provider-netactuate.git
+# Grab the provider:
+git clone git@github.com:netactuate/terraform-provider-netactuate.git
 
 # Install and download all the dependencies and compile all related binaries
 cd terraform-netactuate-provider
