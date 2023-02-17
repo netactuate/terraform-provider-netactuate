@@ -1,20 +1,21 @@
 provider "netactuate" {
-  //api_key = "REDACTED_API_KEY"
+  # Optional: API key can be set here, rather than as an environment variable
+  //api_key = "NETACTUATE_API_KEY"
 }
 
+# Define SSH Key to use for server login
+resource "netactuate_sshkey" "sshkey" {
+  name = "default_key"
+  key  = "ssh-ed25519 REDACTED_SSH_KEY user@email.test"
+}
+
+# Define locations, OS, and instance sizing
 resource "netactuate_server" "server" {
-  hostname         = "terraform.example.com"
-  plan             = "VR1x1x25"
-  location         = "SJC - San Jose, CA"
-  image            = "Ubuntu 20.04.4 LTS (20220404)"
-  password         = random_password.password.result
+  hostname    = "terraform.example.com"
+  plan        = "VR1x1x25"
+  location    = "SJC"
+  image       = "Ubuntu 22.04 (20221110)"
+  ssh_key_id  = netactuate_sshkey.sshkey.id
+  package_billing_contract_id = PROVIDED_CODE
 }
 
-resource "random_password" "password" {
-  length           = 30
-  min_lower        = 1
-  min_upper        = 1
-  min_numeric      = 1
-  min_special      = 1
-  override_special = "!#$%*()-_=+[]{}:?"
-}

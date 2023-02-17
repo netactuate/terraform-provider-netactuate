@@ -145,24 +145,24 @@ func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m interfa
 		setValue("public_ipv6", ips.IPv6[0].IP, d, &diags)
 	}
 
-	if len(*bgpSessions) > 0 {
+	if len(bgpSessions) > 0 {
 		var peerV4 []string
 		var peerV6 []string
 
 		bgpPeers := make(map[string]interface{})
 
-		session := (*bgpSessions)[0]
+		session := (bgpSessions)[0]
 
 		bgpPeers["group_id"] = session.GroupID
-		bgpPeers["localasn"] = session.CustomerASN
-		bgpPeers["peerasn"] = session.ProviderASN
+		bgpPeers["localasn"] = session.CustomerAsn
+		bgpPeers["peerasn"] = session.ProviderAsn
 
-		for _, session := range *bgpSessions {
+		for _, session := range bgpSessions {
 			if session.IsProviderIPTypeV4() {
-				bgpPeers["localpeerv4"] = session.CustomerPeerIP
+				bgpPeers["localpeerv4"] = session.CustomerIP
 				peerV4 = append(peerV4, session.ProviderPeerIP)
 			} else {
-				bgpPeers["localpeerv6"] = session.CustomerPeerIP
+				bgpPeers["localpeerv6"] = session.CustomerIP
 				peerV6 = append(peerV6, session.ProviderPeerIP)
 			}
 		}

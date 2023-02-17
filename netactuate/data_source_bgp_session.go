@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -103,26 +104,26 @@ func dataSourceBGPSessionsRead(ctx context.Context, d *schema.ResourceData, m in
 		return diag.FromErr(err)
 	}
 
-	result := make([]map[string]interface{}, len(*sessions))
+	result := make([]map[string]interface{}, len(sessions))
 
-	for i, session := range *sessions {
+	for i, session := range sessions {
 		s := make(map[string]interface{})
 
 		s["id"] = session.ID
-		s["mb_id"] = session.MbID
+		// s["mb_id"] = session.MbID
 		s["description"] = session.Description
 		s["routes_received"] = session.RoutesReceived
-		s["config_status"] = session.ConfigStatus
+		s["config_status"] = fmt.Sprint(session.ConfigStatus)
 		s["last_update"] = session.LastUpdate
 		s["locked"] = session.IsLocked()
 		s["group_id"] = session.GroupID
 		s["group_name"] = session.GroupName
-		s["location_name"] = session.LocationName
-		s["customer_peer_ip"] = session.CustomerPeerIP
+		s["location_name"] = session.Location
+		s["customer_peer_ip"] = session.CustomerIP
 		s["provider_peer_ip"] = session.ProviderPeerIP
 		s["provider_ip_type"] = session.ProviderIPType
-		s["customer_asn"] = session.CustomerASN
-		s["provider_asn"] = session.ProviderASN
+		s["customer_asn"] = session.CustomerAsn
+		s["provider_asn"] = session.ProviderAsn
 		s["state"] = session.State
 
 		result[i] = s
