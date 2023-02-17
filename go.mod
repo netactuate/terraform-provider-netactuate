@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.22.0
-	github.com/netactuate/gona v0.0.0-20220909202209-fc5c15a0e38b
+	github.com/netactuate/gona v0.0.0-20230217021348-996595856ed6
 )
 
 require (
