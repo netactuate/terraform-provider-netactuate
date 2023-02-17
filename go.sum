@@ -89,6 +89,10 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
+github.com/netactuate/gona v0.0.0-20230217021348-996595856ed6 h1:kGzfYKaW1trsJ8GLcNAPRkAQqSJRqYhRFMmwEGJd8AU=
+github.com/netactuate/gona v0.0.0-20230217021348-996595856ed6/go.mod h1:7SNO5RESGcNt8TGTZfoNPFj2qbsF6lrbetAbGynT8bU=
+github.com/netactuate/gona v0.0.0-20230217210848-4a590be4d97d h1:QeTPYC+ye/eox99kD69RjpBXH0j175LPC/+hPNPgs7Q=
+github.com/netactuate/gona v0.0.0-20230217210848-4a590be4d97d/go.mod h1:7SNO5RESGcNt8TGTZfoNPFj2qbsF6lrbetAbGynT8bU=
 github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce h1:RPclfga2SEJmgMmz2k+Mg7cowZ8yv4Trqw9UsJby758=
 github.com/oklog/run v1.1.0 h1:GEenZ1cK0+q0+wsJew9qUg/DyD8k3JzYsZAi5gYi2mA=
 github.com/oklog/run v1.1.0/go.mod h1:sVPdnTZT1zYwAJeCMu2Th4T21pA3FPOQRfWjQlk7DVU=
@@ -181,5 +185,3 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 inet.af/netaddr v0.0.0-20220811202034-502d2d690317 h1:U2fwK6P2EqmopP/hFLTOAjWTki0qgd4GMJn5X8wOleU=
 inet.af/netaddr v0.0.0-20220811202034-502d2d690317/go.mod h1:OIezDfdzOgFhuw4HuWapWq2e9l0H9tK4F1j+ETRtF3k=
-github.com/netactuate/gona v0.0.0-20230217021348-996595856ed6 h1:kGzfYKaW1trsJ8GLcNAPRkAQqSJRqYhRFMmwEGJd8AU=
-github.com/netactuate/gona v0.0.0-20230217021348-996595856ed6/go.mod h1:7SNO5RESGcNt8TGTZfoNPFj2qbsF6lrbetAbGynT8bU=
