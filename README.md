@@ -5,12 +5,14 @@ Currently in this stage of development -
 
 Basic Steps to test:
 ```bash
+# Grab the vapi2 branch of the provider:
 git clone --branch vapi2 git@github.com:netactuate/terraform-provider-netactuate.git
 
+# Install and download all the dependencies and compile all related binaries
 cd terraform-netactuate-provider
-GOPROXY=direct go get -u github.com/netactuate/gona@vapi2
 make install-all
 
+# Edit an example: [basic, full, cluster]
 cd examples/basic
 export NETACTUATE_API_KEY="my-api-key"
 edit main.tf
@@ -54,7 +56,7 @@ Do the following to run and test the TF provider locally:
     ```bash
     make install-all
     ```
-2. Install TF providers for the test [example](examples/basic):
+2. Install TF providers for the test [example](examples/basic,full,cluster):
     ```bash
     cd example
     terraform init
