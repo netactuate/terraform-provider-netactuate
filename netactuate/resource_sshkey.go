@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -15,6 +16,7 @@ func resourceSshKey() *schema.Resource {
 		CreateContext: resourceSshKeyCreate,
 		ReadContext:   resourceSshKeyRead,
 		DeleteContext: resourceSshKeyDelete,
+		UpdateContext: resourceSshKeyUpdate,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -91,6 +93,38 @@ func resourceSshKeyDelete(ctx context.Context, d *schema.ResourceData, m interfa
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	return nil
+}
+
+func resourceSshKeyUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	c := m.(*gona.Client)
+
+	// Delete the first Key
+	id, err := strconv.Atoi(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if id == 0 {
+		return nil
+	}
+
+	err = c.DeleteSSHKey(id)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Sleep 3 seconds.
+	time.Sleep(3 * time.Second)
+
+	// Create the second key
+	sshKey, err := c.CreateSSHKey(d.Get("name").(string), d.Get("key").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	d.SetId(strconv.Itoa(sshKey.ID))
 
 	return nil
 }

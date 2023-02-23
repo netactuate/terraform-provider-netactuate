@@ -25,6 +25,7 @@ var (
 	credentialKeys = []string{"password", "ssh_key_id", "ssh_key"}
 	locationKeys   = []string{"location", "location_id"}
 	imageKeys      = []string{"image", "image_id"}
+	billingKeys    = []string{"package_billing_contract_id", "package_billing_opt_in"}
 
 	hostnameRegex = fmt.Sprintf("(%[1]s\\.)*%[1]s$", fmt.Sprintf("(%[1]s|%[1]s%[2]s*%[1]s)", "[a-zA-Z0-9]", "[a-zA-Z0-9\\-]"))
 )
@@ -69,11 +70,13 @@ func resourceServer() *schema.Resource {
 			},
 			"package_billing_opt_in": {
 				Type:     schema.TypeString,
+				ExactlyOneOf: billingKeys,
 				ForceNew: false,
 				Optional: true,
 			},
 			"package_billing_contract_id": {
 				Type:     schema.TypeString,
+				ExactlyOneOf: billingKeys,
 				ForceNew: false,
 				Optional: true,
 			},
