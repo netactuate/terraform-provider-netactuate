@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	tries       = 60
-	intervalSec = 5
+	tries       = 120
+	intervalSec = 2
 )
 
 var (
