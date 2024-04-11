@@ -7,6 +7,8 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.25.0
 	github.com/netactuate/gona v0.0.0-20230223185054-6742e60c8fc9
 )
+replace github.com/netactuate/gona => ../gona
+
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect
