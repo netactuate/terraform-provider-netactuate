@@ -156,6 +156,11 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"params": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Additional JSON formatted parameters to be passed to the server creation and management API",
+			},
 		},
 		CustomizeDiff: customdiff.Sequence(
 			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
@@ -189,6 +194,8 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		PackageBillingContractId: d.Get("package_billing_contract_id").(string),
 		CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
 		ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
+		Params:                   d.Get("params").(string), // Handle the new params field
+
 	}
 
 	if userData64, ok := d.GetOk("user_data_base64"); ok {
@@ -224,6 +231,8 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	d.SetId(strconv.Itoa(s.ServerID))
+    d.Set("params", req.Params)  // Store params in the state file
+
 
 	if _, err := wait4Status(s.ServerID, "RUNNING", c); err != nil {
 		return err
@@ -285,100 +294,110 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 }
 
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
-	// rebuild on these property changes
-	if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") {
-		id, err := strconv.Atoi(d.Id())
-		if err != nil {
-			return diag.FromErr(err)
-		}
+    c := m.(*gona.Client)
+    // Rebuild on these property changes
+    if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") || d.HasChange("params") {
+        id, err := strconv.Atoi(d.Id())
+        if err != nil {
+            return diag.FromErr(err)
+        }
 
-		oldHost_r, _ := d.GetChange("hostname")
-		oldHost := oldHost_r.(string)
+        oldHost_r, _ := d.GetChange("hostname")
+        oldHost := oldHost_r.(string)
 
-		if oldHost != "" {
-			// delete
-			err = c.DeleteServer(id, false)
-			if err != nil {
-				return diag.FromErr(err)
-			}
+        if oldHost != "" {
+            // delete
+            err = c.DeleteServer(id, false)
+            if err != nil {
+                return diag.FromErr(err)
+            }
 
-			// await termination
-			if _, err := wait4Status(id, "TERMINATED", c); err != nil {
-				return err
-			}
-		}
+            // await termination
+            if _, err := wait4Status(id, "TERMINATED", c); err != nil {
+                return err
+            }
+        }
 
-		// unlink if changing locationID
-		unlinkRequired := false
+        // unlink if changing locationID
+        unlinkRequired := false
 
-		if d.HasChange("location") {
-			oldLoc_r, _ := d.GetChange("location")
-			oldLoc := oldLoc_r.(string)
-			setValue("location_id", 0, d, &diag.Diagnostics{})
-			if oldLoc != "" {
-				var diags diag.Diagnostics
-				unlinkRequired = true
-				if len(diags) > 0 {
-					return diags
-				}
-				if unlinkRequired {
-					err = c.UnlinkServer(id)
-					if err != nil {
-						return diag.FromErr(err)
-					}
-				}
-			}
-		}
+        if d.HasChange("location") {
+            oldLoc_r, _ := d.GetChange("location")
+            oldLoc := oldLoc_r.(string)
+            setValue("location_id", 0, d, &diag.Diagnostics{})
+            if oldLoc != "" {
+                var diags diag.Diagnostics
+                unlinkRequired = true
+                if len(diags) > 0 {
+                    return diags
+                }
+                if unlinkRequired {
+                    err = c.UnlinkServer(id)
+                    if err != nil {
+                        return diag.FromErr(err)
+                    }
+                }
+            }
+        }
 
-		if d.HasChange("location_id") {
-			oldLoc_r, _ := d.GetChange("location_id")
-			oldLoc := oldLoc_r.(int)
-			if oldLoc != 0 {
-				unlinkRequired = true
-			}
+        if d.HasChange("location_id") {
+            oldLoc_r, _ := d.GetChange("location_id")
+            oldLoc := oldLoc_r.(int)
+            if oldLoc != 0 {
+                unlinkRequired = true
+            }
 
-			if unlinkRequired {
-				err = c.UnlinkServer(id)
-				if err != nil {
-					return diag.FromErr(err)
-				}
-			}
-		}
+            if unlinkRequired {
+                err = c.UnlinkServer(id)
+                if err != nil {
+                    return diag.FromErr(err)
+                }
+            }
+        }
 
-		// get correct build params
-		locationId, imageId, diags := getParams(d, c)
-		if diags != nil {
-			return diags
-		}
-		req := &gona.BuildServerRequest{
-			Location:      locationId,
-			Image:         imageId,
-			FQDN:          d.Get("hostname").(string),
-			SSHKeyID:      d.Get("ssh_key_id").(int),
-			SSHKey:        d.Get("ssh_key").(string),
-			Password:      d.Get("password").(string),
-			CloudConfig:   d.Get("cloud_config").(string),
-			ScriptContent: base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
-		}
+        // Get correct build params
+        locationId, imageId, diags := getParams(d, c)
+        if diags != nil {
+            return diags
+        }
+        req := &gona.BuildServerRequest{
+			Plan:                     d.Get("plan").(string),
+			Location:                 locationId,
+			Image:                    imageId,
+			FQDN:                     d.Get("hostname").(string),
+			SSHKey:                   d.Get("ssh_key").(string),
+			SSHKeyID:                 d.Get("ssh_key_id").(int),
+			Password:                 d.Get("password").(string),
+			PackageBilling:           d.Get("package_billing").(string),
+			PackageBillingContractId: d.Get("package_billing_contract_id").(string),
+			CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
+			ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
+			Params:                   d.Get("params").(string), // Handle the new params field
+        }
 
-		if userData64, ok := d.GetOk("user_data_base64"); ok {
-			req.ScriptContent = userData64.(string)
-		}
+        if userData64, ok := d.GetOk("user_data_base64"); ok {
+            req.ScriptContent = userData64.(string)
+        }
 
-		// build name, id, locationId, osId
-		_, err = c.BuildServer(id, req)
-		if err != nil {
-			return diag.FromErr(err)
-		}
+        // Rebuild server with potentially updated params
+        _, err = c.BuildServer(id, req)
+        if err != nil {
+            return diag.FromErr(err)
+        }
 
-		if _, err := wait4Status(id, "RUNNING", c); err != nil {
-			return err
-		}
-	}
+        // Update the params in the state file if they were changed and server rebuilt
+        if d.HasChange("params") {
+            d.Set("params", req.Params) 
+        }
 
-	return resourceServerRead(ctx, d, m)
+        if _, err := wait4Status(id, "RUNNING", c); err != nil {
+            return err
+        }
+    }
+
+    return resourceServerRead(ctx, d, m)
 }
+
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*gona.Client)
