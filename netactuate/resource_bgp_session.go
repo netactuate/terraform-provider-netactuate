@@ -3,6 +3,7 @@ package netactuate
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -64,6 +65,39 @@ func resourceBGPSessionRead(ctx context.Context, d *schema.ResourceData, m inter
 }
 
 func resourceBGPSessionDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	// Do nothing
-	return nil
+    c       := m.(*gona.Client)
+    mbPkgID := d.Get("mbpkgid").(int)
+
+    // 1) List all sessions
+    sessions, err := c.GetBGPSessions(mbPkgID)
+    if err != nil {
+        return diag.FromErr(err)
+    }
+
+    // 2) Delete each session
+    for _, s := range sessions {
+        if err := c.DeleteBGPSession(s.ID); err != nil {
+            return diag.Errorf("failed to delete BGP session %d: %s", s.ID, err)
+        }
+    }
+
+    // 3) Poll until no sessions remain
+    deadline := time.Now().Add(2 * time.Minute)
+    for {
+        if time.Now().After(deadline) {
+            return diag.Errorf("timed out waiting for BGP sessions on %d to clear", mbPkgID)
+        }
+        remaining, err := c.GetBGPSessions(mbPkgID)
+        if err != nil {
+            return diag.FromErr(err)
+        }
+        if len(remaining) == 0 {
+            break
+        }
+        time.Sleep(5 * time.Second)
+    }
+
+    // 4) Done
+    d.SetId("")
+    return nil
 }

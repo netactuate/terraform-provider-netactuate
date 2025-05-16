@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	tries       = 200
-	intervalSec = 1
+	tries       = 100
+	intervalSec = 5
 )
 
 var (
@@ -271,27 +271,34 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 		updateValue("image_id", server.OSID, d, &diags)
 		updateValue("image", server.OS, d, &diags)
 	}
+
 	setValue("plan", server.Package, d, &diags)
 	updateValue("location_id", server.LocationID, d, &diags)
-	updateValue("location", strings.Fields(server.Location)[0], d, &diags)
 
-	_, exists_location_id := d.GetOk("location_id")
-	_, exists_location := d.GetOk("location")
-	if !exists_location_id && !exists_location {
-		setValue("location", strings.Fields(server.Location)[0], d, &diags)
+	// Safely derive the first field of server.Location, if present
+	locParts := strings.Fields(server.Location)
+	if len(locParts) > 0 {
+		updateValue("location", locParts[0], d, &diags)
 	}
 
-	_, exists_image_id := d.GetOk("image_id")
-	_, exists_image := d.GetOk("image")
-	if !exists_image_id && !exists_image {
+	_, existsLocID := d.GetOk("location_id")
+	_, existsLoc := d.GetOk("location")
+	if !existsLocID && !existsLoc && len(locParts) > 0 {
+		setValue("location", locParts[0], d, &diags)
+	}
+
+	// Similarly for image
+	_, existsImgID := d.GetOk("image_id")
+	_, existsImg := d.GetOk("image")
+	if !existsImgID && !existsImg {
 		setValue("image", server.OS, d, &diags)
 	}
+
 	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
 	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
 
 	return diags
 }
-
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*gona.Client)
 	// Rebuild on these property changes
@@ -301,60 +308,19 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			return diag.FromErr(err)
 		}
 
-		oldHost_r, _ := d.GetChange("hostname")
-		oldHost := oldHost_r.(string)
-
+		oldHostRaw, _ := d.GetChange("hostname")
+		oldHost := oldHostRaw.(string)
 		if oldHost != "" {
-			// delete
-			err = c.DeleteServer(id, false)
+			jobID, err := c.DeleteServer(id, false)
 			if err != nil {
 				return diag.FromErr(err)
 			}
-
-			// await termination
-			if _, err := wait4Status(id, "TERMINATED", c); err != nil {
-				return err
+			if err := c.WaitForJob(id, jobID, "delete"); err != nil {
+				return diag.Errorf("waiting for delete job in update: %s", err)
 			}
 		}
 
-		// unlink if changing locationID
-		unlinkRequired := false
-
-		if d.HasChange("location") {
-			oldLoc_r, _ := d.GetChange("location")
-			oldLoc := oldLoc_r.(string)
-			setValue("location_id", 0, d, &diag.Diagnostics{})
-			if oldLoc != "" {
-				var diags diag.Diagnostics
-				unlinkRequired = true
-				if len(diags) > 0 {
-					return diags
-				}
-				if unlinkRequired {
-					err = c.UnlinkServer(id)
-					if err != nil {
-						return diag.FromErr(err)
-					}
-				}
-			}
-		}
-
-		if d.HasChange("location_id") {
-			oldLoc_r, _ := d.GetChange("location_id")
-			oldLoc := oldLoc_r.(int)
-			if oldLoc != 0 {
-				unlinkRequired = true
-			}
-
-			if unlinkRequired {
-				err = c.UnlinkServer(id)
-				if err != nil {
-					return diag.FromErr(err)
-				}
-			}
-		}
-
-		// Get correct build params
+		// Existing rebuild logic follows...
 		locationId, imageId, diags := getParams(d, c)
 		if diags != nil {
 			return diags
@@ -371,24 +337,18 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			PackageBillingContractId: d.Get("package_billing_contract_id").(string),
 			CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
 			ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
-			Params:                   d.Get("params").(string), // Handle the new params field
+			Params:                   d.Get("params").(string),
 		}
 
-		if userData64, ok := d.GetOk("user_data_base64"); ok {
-			req.ScriptContent = userData64.(string)
-		}
-
-		// Rebuild server with potentially updated params
-		_, err = c.BuildServer(id, req)
-		if err != nil {
+		if _, err := c.BuildServer(id, req); err != nil {
 			return diag.FromErr(err)
 		}
 
-		// Update the params in the state file if they were changed and server rebuilt
 		if d.HasChange("params") {
 			d.Set("params", req.Params)
 		}
 
+		// Wait until the server is running (can replace with WaitForJob for build if desired)
 		if _, err := wait4Status(id, "RUNNING", c); err != nil {
 			return err
 		}
@@ -398,23 +358,27 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+    c := m.(*gona.Client)
+    id, err := strconv.Atoi(d.Id())
+    if err != nil {
+        return diag.FromErr(err)
+    }
 
-	id, err := strconv.Atoi(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
-	}
+    // 1) Kick off delete, get back a Job ID or an API error
+    jobID, err := c.DeleteServer(id, true)
+    if err != nil {
+        // directly surface the API's error message and fields
+        return diag.Errorf("failed to delete server %d: %s", id, err)
+    }
 
-	err = c.DeleteServer(id, true)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+    // 2) Poll until that job completes (status==5)
+    if err := c.WaitForJob(id, jobID, "delete"); err != nil {
+        return diag.Errorf("error waiting for delete job %d: %s", jobID, err)
+    }
 
-	// await termination
-	if _, err := wait4Status(id, "TERMINATED", c); err != nil {
-		return err
-	}
-	return nil
+    // 3) Tell Terraform it's gone
+    d.SetId("")
+    return nil
 }
 
 func wait4Status(serverId int, status string, client *gona.Client) (server gona.Server, d diag.Diagnostics) {
@@ -423,9 +387,9 @@ func wait4Status(serverId int, status string, client *gona.Client) (server gona.
 
 		// Special-case deletion: when waiting for TERMINATED, treat either a real
 		// TERMINATED or a blank status (due to the 422/invalid-mbpkgid) as success.
-		if status == "TERMINATED" && err == nil && (server.ServerStatus == status || server.ServerStatus == "") {
-			return server, nil
-		}
+		// if status == "TERMINATED" && err == nil && (server.ServerStatus == status || server.ServerStatus == "") {
+		// 	return server, nil
+		// }
 
 		if err != nil && i >= 5 {
 			// Retry errors on first few attempts, since sometimes calling GetServer
