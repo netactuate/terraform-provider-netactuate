@@ -300,62 +300,122 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
-	// Rebuild on these property changes
-	if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") || d.HasChange("params") {
-		id, err := strconv.Atoi(d.Id())
-		if err != nil {
-			return diag.FromErr(err)
-		}
+    c := m.(*gona.Client)
 
-		oldHostRaw, _ := d.GetChange("hostname")
-		oldHost := oldHostRaw.(string)
-		if oldHost != "" {
-			jobID, err := c.DeleteServer(id, false)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-			if err := c.WaitForJob(id, jobID, "delete"); err != nil {
-				return diag.Errorf("waiting for delete job in update: %s", err)
-			}
-		}
+    // Trigger rebuild on key property changes
+    if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") || d.HasChange("params") {
+        // Parse Terraform ID
+        id, err := strconv.Atoi(d.Id())
+        if err != nil {
+            return diag.FromErr(err)
+        }
 
-		// Existing rebuild logic follows...
-		locationId, imageId, diags := getParams(d, c)
-		if diags != nil {
-			return diags
-		}
-		req := &gona.BuildServerRequest{
-			Plan:                     d.Get("plan").(string),
-			Location:                 locationId,
-			Image:                    imageId,
-			FQDN:                     d.Get("hostname").(string),
-			SSHKey:                   d.Get("ssh_key").(string),
-			SSHKeyID:                 d.Get("ssh_key_id").(int),
-			Password:                 d.Get("password").(string),
-			PackageBilling:           d.Get("package_billing").(string),
-			PackageBillingContractId: d.Get("package_billing_contract_id").(string),
-			CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
-			ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
-			Params:                   d.Get("params").(string),
-		}
+        // 1) Inspect existing BGP sessions to capture flags and group ID
+        sessions, err := c.GetBGPSessions(id)
+        if err != nil {
+            return diag.FromErr(err)
+        }
+        hadSessions := len(sessions) > 0
+        var hasIPv6, isRedundant bool
+        var groupID int
+        if hadSessions {
+            // All sessions share the same group
+            groupID = sessions[0].GroupID
+            counts := make(map[string]int)
+            for _, sess := range sessions {
+                counts[sess.ProviderIPType]++
+            }
+            if counts[string(gona.IPv6)] > 0 {
+                hasIPv6 = true
+            }
+            for _, cnt := range counts {
+                if cnt > 1 {
+                    isRedundant = true
+                    break
+                }
+            }
+        }
 
-		if _, err := c.BuildServer(id, req); err != nil {
-			return diag.FromErr(err)
-		}
+        // 2) Delete any existing BGP sessions
+        for _, sess := range sessions {
+            if err := c.DeleteBGPSession(sess.ID); err != nil {
+                return diag.Errorf("failed to delete BGP session %d: %s", sess.ID, err)
+            }
+        }
+        // Wait until cleared
+        deadline := time.Now().Add(2 * time.Minute)
+        for {
+            if time.Now().After(deadline) {
+                return diag.Errorf("timed out waiting for BGP sessions to clear on server %d", id)
+            }
+            remaining, err := c.GetBGPSessions(id)
+            if err != nil {
+                return diag.FromErr(err)
+            }
+            if len(remaining) == 0 {
+                break
+            }
+            time.Sleep(5 * time.Second)
+        }
 
-		if d.HasChange("params") {
-			d.Set("params", req.Params)
-		}
+        // 3) Delete & cancel billing if hostname changed
+        oldHostRaw, _ := d.GetChange("hostname")
+        oldHost := oldHostRaw.(string)
+        if oldHost != "" {
+            jobID, err := c.DeleteServer(id, false)
+            if err != nil {
+                return diag.FromErr(err)
+            }
+            if err := waitForJob(c, id, jobID); err != nil {
+                return diag.Errorf("waiting for delete job in update: %s", err)
+            }
+        }
 
-		// Wait until the server is running (can replace with WaitForJob for build if desired)
-		if _, err := wait4Status(id, "RUNNING", c); err != nil {
-			return err
-		}
-	}
+        // 4) Rebuild server
+        locationId, imageId, diags := getParams(d, c)
+        if diags != nil {
+            return diags
+        }
+        // Safely convert SSHKeyID and BillingContractId from any type
+        sshKeyIDRaw := fmt.Sprint(d.Get("ssh_key_id"))
+        sshKeyID, err := strconv.Atoi(sshKeyIDRaw)
+        if err != nil {
+            return diag.Errorf("invalid ssh_key_id: %s", sshKeyIDRaw)
+        }
+        billingContractRaw := fmt.Sprint(d.Get("package_billing_contract_id"))
 
-	return resourceServerRead(ctx, d, m)
+        req := &gona.BuildServerRequest{
+            Plan:                     d.Get("plan").(string),
+            Location:                 locationId,
+            Image:                    imageId,
+            FQDN:                     d.Get("hostname").(string),
+            SSHKey:                   d.Get("ssh_key").(string),
+            SSHKeyID:                 sshKeyID,
+            Password:                 d.Get("password").(string),
+            PackageBilling:           d.Get("package_billing").(string),
+            PackageBillingContractId: billingContractRaw,
+            CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
+            ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
+            Params:                   d.Get("params").(string),
+        }
+        if _, err := c.BuildServer(id, req); err != nil {
+            return diag.FromErr(err)
+        }
+        if _, err := wait4Status(id, "RUNNING", c); err != nil {
+            return err
+        }
+
+        // 5) Recreate BGP sessions only if they existed before
+        if hadSessions {
+            if _, err := c.CreateBGPSessions(id, groupID, hasIPv6, isRedundant); err != nil {
+                return diag.Errorf("failed to recreate BGP sessions: %s", err)
+            }
+        }
+    }
+
+    return resourceServerRead(ctx, d, m)
 }
+
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*gona.Client)
