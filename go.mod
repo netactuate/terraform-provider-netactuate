@@ -11,7 +11,7 @@ require (
 )
 
 // Use your local Gona instead of the one on github.com
-replace github.com/netactuate/gona => ../gona
+// replace github.com/netactuate/gona => ../gona
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect

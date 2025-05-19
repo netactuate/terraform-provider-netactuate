@@ -358,27 +358,43 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    c := m.(*gona.Client)
-    id, err := strconv.Atoi(d.Id())
-    if err != nil {
-        return diag.FromErr(err)
-    }
+	client := m.(*gona.Client)
 
-    // 1) Kick off delete, get back a Job ID or an API error
-    jobID, err := c.DeleteServer(id, true)
-    if err != nil {
-        // directly surface the API's error message and fields
-        return diag.Errorf("failed to delete server %d: %s", id, err)
-    }
+	id, err := strconv.Atoi(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
-    // 2) Poll until that job completes (status==5)
-    if err := c.WaitForJob(id, jobID, "delete"); err != nil {
-        return diag.Errorf("error waiting for delete job %d: %s", jobID, err)
-    }
+	// 1) Kick off the delete, get back a job ID
+	jobID, err := client.DeleteServer(id, true)
+	if err != nil {
+		return diag.Errorf("failed to delete server %d: %s", id, err)
+	}
 
-    // 3) Tell Terraform it's gone
-    d.SetId("")
-    return nil
+	// 2) Poll that job until status==5 (success) or timeout
+	if err := waitForJob(client, id, jobID); err != nil {
+		return diag.Errorf("error waiting for delete job %d: %s", jobID, err)
+	}
+
+	// 3) Mark Terraform resource as gone
+	d.SetId("")
+	return nil
+}
+
+// waitForJob polls GetJob until job.Status == 5 or we exhaust jobTries.
+// Reuses the same pattern and constants you have for wait4Status.
+func waitForJob(client *gona.Client, serverID, jobID int) error {
+	for i := 0; i < tries; i++ {
+		job, err := client.GetJob(serverID, jobID)
+		if err != nil {
+			return fmt.Errorf("polling job %d: %w", jobID, err)
+		}
+		if job.Status == 5 {
+			return nil
+		}
+		time.Sleep(time.Duration(intervalSec) * time.Second)
+	}
+	return fmt.Errorf("timed out waiting for job %d after %d attempts", jobID, tries)
 }
 
 func wait4Status(serverId int, status string, client *gona.Client) (server gona.Server, d diag.Diagnostics) {
