@@ -299,147 +299,247 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	return diags
 }
+
+// resourceServerUpdate handles in-place rebuilds, POP moves, and hostname
+// renames. If you change POP, it will:
+//   1) delete any existing BGP sessions
+//   2) delete the server (cancel=false) so we can unlink
+//   3) unlink the server from its old IP
+//   4) call BuildServer(...) with the new location/image
+//   5) wait for RUNNING
+//   6) recreate BGP sessions (if any)
+//
+// Hostname-only changes still go via DeleteServer(id,false) → wait → Build.
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+    c := m.(*gona.Client)
+    var diags diag.Diagnostics
 
-	// Only rebuild if one of these key fields changed.
-	if d.HasChange("location") ||
-		d.HasChange("location_id") ||
-		d.HasChange("image") ||
-		d.HasChange("image_id") ||
-		d.HasChange("hostname") ||
-		d.HasChange("params") {
+    // Only proceed with rebuild if specific fields have changed
+    if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") ||
+        d.HasChange("image_id") || d.HasChange("hostname") || d.HasChange("params") {
 
-		// Parse Terraform resource ID
-		id, err := strconv.Atoi(d.Id())
-		if err != nil {
-			return diag.FromErr(err)
-		}
+        // Parse Terraform resource ID
+        id, err := strconv.Atoi(d.Id())
+        if err != nil {
+            diags = append(diags, diag.FromErr(err)...)
+            return diags
+        }
 
-		// === 1) Decide if we really need to UNLINK the mbpkgid (i.e. move sites) ===
-		unlinkRequired := false
-		if d.HasChange("location") {
-			oldLocRaw, _ := d.GetChange("location")
-			if oldLocRaw.(string) != "" {
-				unlinkRequired = true
-			}
-			// Clear location_id so getParams() will re-resolve it from the new string
-			d.Set("location_id", 0)
-		}
-		if d.HasChange("location_id") {
-			oldIDRaw, _ := d.GetChange("location_id")
-			if oldIDRaw.(int) != 0 {
-				unlinkRequired = true
-			}
-		}
+        // Resolve new target IDs
+        newLocID, newImgID, getParamsDiags := getParams(d, c)
+        if getParamsDiags != nil {
+            return getParamsDiags
+        }
 
-		// === 2) If we’re unlinking, snapshot & teardown existing BGP sessions ===
-		var hadSessions, hasIPv6, isRedundant bool
-		var groupID int
-		if unlinkRequired {
-			sessions, err := c.GetBGPSessions(id)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-			hadSessions = len(sessions) > 0
-			if hadSessions {
-				groupID = sessions[0].GroupID
-				counts := make(map[string]int)
-				for _, s := range sessions {
-					counts[s.ProviderIPType]++
-				}
-				hasIPv6 = counts[string(gona.IPv6)] > 0
-				for _, cnt := range counts {
-					if cnt > 1 {
-						isRedundant = true
-						break
-					}
-				}
-				for _, s := range sessions {
-					if err := c.DeleteBGPSession(s.ID); err != nil {
-						return diag.Errorf("failed to delete BGP session %d: %s", s.ID, err)
-					}
-				}
-				// wait for them all to clear
-				deadline := time.Now().Add(2 * time.Minute)
-				for {
-					if time.Now().After(deadline) {
-						return diag.Errorf("timed out waiting for BGP sessions to clear on server %d", id)
-					}
-					rem, err := c.GetBGPSessions(id)
-					if err != nil {
-						return diag.FromErr(err)
-					}
-					if len(rem) == 0 {
-						break
-					}
-					time.Sleep(5 * time.Second)
-				}
-			}
+        // Determine if unlinking is required (for location or location_id changes)
+        unlinkRequired := false
+        if d.HasChange("location") {
+            oldLocRaw, _ := d.GetChange("location")
+            if oldLocRaw.(string) != "" {
+                unlinkRequired = true
+            }
+            // Clear location_id so getParams() will re-resolve it from the new string
+            d.Set("location_id", 0)
+        }
+        if d.HasChange("location_id") {
+            oldIDRaw, _ := d.GetChange("location_id")
+            if oldIDRaw.(int) != 0 {
+                unlinkRequired = true
+            }
+        }
 
-			// === 3) Unlink the server from its IP so mbpkgid can move ===
-			if err := c.UnlinkServer(id); err != nil {
-				return diag.Errorf("failed to unlink server %d: %s", id, err)
-			}
-		}
+        // Debug: Log preconditions for BGP and unlinking
+        diags = append(diags, diag.Diagnostic{
+            Severity: diag.Warning,
+            Summary:  "Update preconditions",
+            Detail:   fmt.Sprintf("unlinkRequired=%t, HasChange(location)=%t, HasChange(location_id)=%t, HasChange(hostname)=%t",
+                unlinkRequired, d.HasChange("location"), d.HasChange("location_id"), d.HasChange("hostname")),
+        })
 
-		// === 4) If hostname changed, delete & cancel billing to rename ===
-		oldHostRaw, _ := d.GetChange("hostname")
-		oldHost := oldHostRaw.(string)
-		if oldHost != "" {
-			jobID, err := c.DeleteServer(id, false)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-			if err := waitForJob(c, id, jobID); err != nil {
-				return diag.Errorf("waiting for delete job in update: %s", err)
-			}
-		}
+        // If we’re moving, tear down BGP first
+        var hadSessions, hasIPv6, isRedundant bool
+        var groupID int
+        if unlinkRequired {
+            sessions, err := c.GetBGPSessions(id)
+            if err != nil {
+                diags = append(diags, diag.FromErr(err)...)
+                return diags
+            }
+            hadSessions = len(sessions) > 0
+            if hadSessions {
+                groupID = sessions[0].GroupID
+                counts := make(map[string]int)
+                for _, s := range sessions {
+                    counts[s.ProviderIPType]++
+                }
+                hasIPv6 = counts[string(gona.IPv6)] > 0
+                for _, cnt := range counts {
+                    if cnt > 1 {
+                        isRedundant = true
+                        break
+                    }
+                }
+                for _, s := range sessions {
+                    if err := c.DeleteBGPSession(s.ID); err != nil {
+                        diags = append(diags, diag.Diagnostic{
+                            Severity: diag.Error,
+                            Summary:  "Failed to delete BGP session",
+                            Detail:   fmt.Sprintf("Failed to delete BGP session %d: %s", s.ID, err),
+                        })
+                        return diags
+                    }
+                }
+                // Wait for BGP sessions to clear
+                deadline := time.Now().Add(2 * time.Minute)
+                for {
+                    if time.Now().After(deadline) {
+                        diags = append(diags, diag.Diagnostic{
+                            Severity: diag.Error,
+                            Summary:  "Timed out waiting for BGP sessions to clear",
+                            Detail:   fmt.Sprintf("Timed out waiting for BGP sessions to clear on server %d", id),
+                        })
+                        return diags
+                    }
+                    rem, err := c.GetBGPSessions(id)
+                    if err != nil {
+                        diags = append(diags, diag.FromErr(err)...)
+                        return diags
+                    }
+                    if len(rem) == 0 {
+                        break
+                    }
+                    time.Sleep(5 * time.Second)
+                }
+            }
 
-		// === 5) Rebuild (in-place if not moved, or re-attach if we did unlink) ===
-		locationId, imageId, diags := getParams(d, c)
-		if diags != nil {
-			return diags
-		}
+            // Delete the server (cancel=false) so we can unlink
+            jobID, err := c.DeleteServer(id, false)
+            if err != nil {
+                diags = append(diags, diag.Diagnostic{
+                    Severity: diag.Error,
+                    Summary:  "Failed to delete server before move",
+                    Detail:   fmt.Sprintf("Failed to delete server %d before move: %s", id, err),
+                })
+                return diags
+            }
+            if err := waitForJob(c, id, jobID); err != nil {
+                diags = append(diags, diag.Diagnostic{
+                    Severity: diag.Error,
+                    Summary:  "Failed waiting for delete job in move",
+                    Detail:   fmt.Sprintf("Waiting for delete job in move: %s", err),
+                })
+                return diags
+            }
 
-		sshKeyIDRaw := fmt.Sprint(d.Get("ssh_key_id"))
-		sshKeyID, err := strconv.Atoi(sshKeyIDRaw)
-		if err != nil {
-			return diag.Errorf("invalid ssh_key_id %q", sshKeyIDRaw)
-		}
-		billingContract := fmt.Sprint(d.Get("package_billing_contract_id"))
+            // Unlink the server
+            if err := c.UnlinkServer(id); err != nil {
+                diags = append(diags, diag.Diagnostic{
+                    Severity: diag.Error,
+                    Summary:  "Failed to unlink server",
+                    Detail:   fmt.Sprintf("Failed to unlink server %d: %s", id, err),
+                })
+                return diags
+            }
+        }
 
-		req := &gona.BuildServerRequest{
-			Plan:                     d.Get("plan").(string),
-			Location:                 locationId,
-			Image:                    imageId,
-			FQDN:                     d.Get("hostname").(string),
-			SSHKey:                   d.Get("ssh_key").(string),
-			SSHKeyID:                 sshKeyID,
-			Password:                 d.Get("password").(string),
-			PackageBilling:           d.Get("package_billing").(string),
-			PackageBillingContractId: billingContract,
-			CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
-			ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
-			Params:                   d.Get("params").(string),
-		}
-		if _, err := c.BuildServer(id, req); err != nil {
-			return diag.FromErr(err)
-		}
-		if _, err := wait4Status(id, "RUNNING", c); err != nil {
-			return err
-		}
+        // If hostname changed, delete & wait
+        if d.HasChange("hostname") {
+            oldHostRaw, _ := d.GetChange("hostname")
+            if oldHostRaw.(string) != "" {
+                jobID, err := c.DeleteServer(id, false)
+                if err != nil {
+                    diags = append(diags, diag.FromErr(err)...)
+                    return diags
+                }
+                if err := waitForJob(c, id, jobID); err != nil {
+                    diags = append(diags, diag.Diagnostic{
+                        Severity: diag.Error,
+                        Summary:  "Failed waiting for delete job in rename",
+                        Detail:   fmt.Sprintf("Waiting for delete job in rename: %s", err),
+                    })
+                    return diags
+                }
+            }
+        }
 
-		// === 6) Recreate BGP sessions if—and only if—we unlinked AND we had some ===
-		if unlinkRequired && hadSessions {
-			if _, err := c.CreateBGPSessions(id, groupID, hasIPv6, isRedundant); err != nil {
-				return diag.Errorf("failed to recreate BGP sessions: %s", err)
-			}
-		}
-	}
+        // Rebuild (either same POP or new POP)
+        diags = append(diags, diag.Diagnostic{
+            Severity: diag.Warning,
+            Summary:  "Rebuilding server",
+            Detail:   fmt.Sprintf("Rebuilding server with ID=%d, Location=%d, Image=%d", id, newLocID, newImgID),
+        })
+        sshKeyIDRaw := fmt.Sprint(d.Get("ssh_key_id"))
+        sshKeyID, err := strconv.Atoi(sshKeyIDRaw)
+        if err != nil {
+            diags = append(diags, diag.Diagnostic{
+                Severity: diag.Error,
+                Summary:  "Invalid SSH key ID",
+                Detail:   fmt.Sprintf("Invalid ssh_key_id %q", sshKeyIDRaw),
+            })
+            return diags
+        }
+        billingContract := fmt.Sprint(d.Get("package_billing_contract_id"))
 
-	return resourceServerRead(ctx, d, m)
+        req := &gona.BuildServerRequest{
+            Plan:                     d.Get("plan").(string),
+            Location:                 newLocID,
+            Image:                    newImgID,
+            FQDN:                     d.Get("hostname").(string),
+            SSHKey:                   d.Get("ssh_key").(string),
+            SSHKeyID:                 sshKeyID,
+            Password:                 d.Get("password").(string),
+            PackageBilling:           d.Get("package_billing").(string),
+            PackageBillingContractId: billingContract,
+            CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
+            ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
+            Params:                   d.Get("params").(string),
+        }
+        if _, err := c.BuildServer(id, req); err != nil {
+            diags = append(diags, diag.FromErr(err)...)
+            return diags
+        }
+        // Fix for wait4Status returning diag.Diagnostics
+        if _, waitDiags := wait4Status(id, "RUNNING", c); len(waitDiags) > 0 {
+            diags = append(diags, waitDiags...)
+            return diags
+        }
+
+        // Recreate BGP sessions if—and only if—we unlinked AND had sessions
+        if unlinkRequired && hadSessions {
+            diags = append(diags, diag.Diagnostic{
+                Severity: diag.Warning,
+                Summary:  "Attempting to recreate BGP sessions",
+                Detail:   fmt.Sprintf("ServerID=%d, GroupID=%d, HasIPv6=%t, IsRedundant=%t", id, groupID, hasIPv6, isRedundant),
+            })
+
+            // Call CreateBGPSessions, expecting a single *gona.BGPSession
+            newSession, err := c.CreateBGPSessions(id, groupID, hasIPv6, isRedundant)
+            if err != nil {
+                diags = append(diags, diag.Diagnostic{
+                    Severity: diag.Error,
+                    Summary:  "Failed to recreate BGP sessions",
+                    Detail:   fmt.Sprintf("Error recreating BGP sessions for server %d: %s", id, err),
+                })
+                return diags
+            }
+
+            // Debug successful creation
+            sessionCount := 0
+            if newSession != nil {
+                sessionCount = 1
+            }
+            diags = append(diags, diag.Diagnostic{
+                Severity: diag.Warning,
+                Summary:  "BGP sessions recreated",
+                Detail:   fmt.Sprintf("Created %d BGP session(s) for server %d: %+v", sessionCount, id, newSession),
+            })
+        }
+    }
+
+    // Finally, re-sync all fields
+    return resourceServerRead(ctx, d, m)
 }
+
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*gona.Client)
@@ -508,24 +608,45 @@ func wait4Status(serverId int, status string, client *gona.Client) (server gona.
 	return server, diag.Errorf("Timeout of waiting the server to obtain %q status", status)
 }
 
+// getParams resolves “location” and “image” into their numeric IDs.
+// It first checks for a non-zero location_id or image_id, then
+// falls back to looking up by name if needed.
 func getParams(d *schema.ResourceData, client *gona.Client) (int, int, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	locationId, ld := getLocation(d, client)
-	if ld != nil {
-		diags = append(diags, *ld)
-	}
-	imageId, exists := d.GetOk("image_id")
-	if !exists {
-		image, d := getImageByName(d.Get("image").(string), client)
-		if d != nil {
-			diags = append(diags, *d)
-		} else {
-			imageId = image.ID
-		}
-	}
+    var diags diag.Diagnostics
 
-	return locationId, imageId.(int), diags
+    // 1) Location
+    var locationId int
+    if v, ok := d.GetOk("location_id"); ok && v.(int) != 0 {
+        locationId = v.(int)
+    } else if name := d.Get("location").(string); name != "" {
+        id, ld := getLocation(d, client)
+        if ld != nil {
+            diags = append(diags, *ld)
+        }
+        locationId = id
+    } else {
+        // explicit zero if nothing set
+        locationId = d.Get("location_id").(int)
+    }
+
+    // 2) Image
+    var imageId int
+    if v, ok := d.GetOk("image_id"); ok && v.(int) != 0 {
+        imageId = v.(int)
+    } else if name := d.Get("image").(string); name != "" {
+        os, idDiag := getImageByName(name, client)
+        if idDiag != nil {
+            diags = append(diags, *idDiag)
+        } else {
+            imageId = os.ID
+        }
+    } else {
+        imageId = d.Get("image_id").(int)
+    }
+
+    return locationId, imageId, diags
 }
+
 
 func getLocation(d *schema.ResourceData, client *gona.Client) (int, *diag.Diagnostic) {
 	locationId, exists := d.GetOk("location_id")
