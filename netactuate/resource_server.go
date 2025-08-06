@@ -488,7 +488,7 @@ func getLocation(d *schema.ResourceData, client *gona.Client) (int, *diag.Diagno
 		}
 	}
 
-	return 0, &diag.Errorf("Provided location %q doesn't exist", locationId)[0]
+	return 0, &diag.Errorf("Provided location %q doesn't exist", requestLocation)[0]
 }
 
 func getImageByName(name string, client *gona.Client) (*gona.OS, *diag.Diagnostic) {
