@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+  "log"
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
@@ -306,15 +306,16 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		if oldHost != "" {
 			// delete
-			err = c.DeleteServer(id, false)
-			if err != nil {
-				return diag.FromErr(err)
-			}
+			jobID, err := c.DeleteServer(id, false)
+            if err != nil {
+                return diag.FromErr(err)
+            }
+            log.Printf("[DEBUG] Delete job started with jobID: %d", jobID)
 
-			// await termination
-			if _, err := wait4Status(id, "TERMINATED", c); err != nil {
-				return err
-			}
+            if d := wait4JobStatus("delete", jobID, c); d != nil {
+                return d
+            }
+            log.Printf("[DEBUG] Server deletion job %d completed", jobID)
 		}
 
 		// unlink if changing locationID
@@ -398,22 +399,26 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+    c := m.(*gona.Client)
 
-	id, err := strconv.Atoi(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
-	}
+    id, err := strconv.Atoi(d.Id())
+    if err != nil {
+        return diag.FromErr(err)
+    }
+	log.Printf("[DEBUG] Deleting server with ID: %d", id)
 
-	err = c.DeleteServer(id, true)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+    jobID, err := c.DeleteServer(id, true)
+    if err != nil {
+        return diag.FromErr(err)
+    }
+	log.Printf("[DEBUG] Delete job started with jobID: %d", jobID)
 
-	// await termination
-	if _, err := wait4Status(id, "TERMINATED", c); err != nil {
-		return err
-	}
+    if d := wait4JobStatus("delete", jobID, c); d != nil {
+        return d
+    }
+
+	log.Printf("[DEBUG] Server deletion job %d completed", jobID)
+
 	return nil
 }
 
@@ -442,6 +447,28 @@ func wait4Status(serverId int, status string, client *gona.Client) (server gona.
 	}
 
 	return server, diag.Errorf("Timeout of waiting the server to obtain %q status", status)
+}
+
+func wait4JobStatus(command string, jobID int, client *gona.Client) diag.Diagnostics {
+    for i := 0; i < tries; i++ {
+        job, err := client.GetJobStatus(command, jobID)
+        if err != nil {
+            return diag.FromErr(err)
+        }
+
+        if job.Status > 5 {
+            return diag.Errorf("Job %s #%d failed with status: %d", command, jobID, job.Status)
+        }
+
+        // 5 = completed
+        if job.Status == 5 {
+            return nil
+        }
+
+        time.Sleep(intervalSec * time.Second)
+    }
+
+    return diag.Errorf("timeout waiting for job %s #%d to complete", command, jobID)
 }
 
 func getParams(d *schema.ResourceData, client *gona.Client) (int, int, diag.Diagnostics) {
