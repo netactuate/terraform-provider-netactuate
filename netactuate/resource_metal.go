@@ -5,9 +5,9 @@ import (
 	//"encoding/base64"
 	//"fmt"
 	"regexp"
-	//"strconv"
+	"strconv"
 	//"strings"
-	//"time"
+	"time"
     "log"
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -16,6 +16,9 @@ import (
 	"github.com/netactuate/gona/gona"
 )
 
+const (
+	metalIntervalSec = 5
+)
 
 func resourceMetal() *schema.Resource {
 	return &schema.Resource{
@@ -89,6 +92,14 @@ func resourceMetal() *schema.Resource {
                 Optional: true,
                 Description: "Disk layout ID",
             },
+            "primary_ipv4": {
+                Type:     schema.TypeString,
+                Computed: true,
+            },
+            "primary_ipv6": {
+                Type:     schema.TypeString,
+                Computed: true,
+            },
 		},
 		CustomizeDiff: customdiff.Sequence(
 			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
@@ -101,14 +112,45 @@ func resourceMetal() *schema.Resource {
 	}
 }
 
-func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	//c := m.(*gona.Client)
+func wait4BuildStatus(buildID int, timeoutMinutes int, client *gona.Client) diag.Diagnostics {
+    if timeoutMinutes == 0 {
+        timeoutMinutes = 45
+    }
 
-//     var diags diag.Diagnostics
-// 	if diags != nil {
-// 		return diags
-// 	}
-// 	diags = diag.Diagnostics{}
+    start := time.Now()
+
+    for {
+        job, err := client.GetMetalBuildStatus(buildID)
+        if err != nil {
+            return diag.FromErr(err)
+        }
+
+        if job.Status == "Failed" || job.Status == "Archived" {
+            return diag.Errorf("Build #%d failed with status: %s", buildID, job.Status)
+        }
+
+        if job.Status == "Complete" {
+            return nil
+        }
+
+        elapsed := time.Since(start)
+        if elapsed.Minutes() >= float64(timeoutMinutes) {
+            return diag.Errorf("timeout waiting for job #%d to complete (waited %v minutes)", buildID, int(elapsed.Minutes()))
+        }
+
+        time.Sleep(metalIntervalSec * time.Second)
+    }
+}
+
+
+func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+    c := m.(*gona.Client)
+
+    var diags diag.Diagnostics
+	if diags != nil {
+		return diags
+	}
+	diags = diag.Diagnostics{}
 
 
 	req := &gona.CreateMetalRequest{
@@ -124,42 +166,133 @@ func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 
-	//s, err := c.CreateMetal(req)
-	//if err != nil {
-	//	return diag.FromErr(err)
-	//}
+	s, err := c.CreateMetal(req)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
-	//d.SetId(strconv.Itoa(s.MetalID))
-	//d.Set("params", req.Params) // Store params in the state file
+	d.SetId(strconv.Itoa(s.MBPKGID))
 
-	//if _, err := wait4Status(s.MetalID, "RUNNING", c); err != nil {
-	//	return err
-	//}
+    if d := wait4BuildStatus(s.Build, 45, c); d != nil {
+        return d
+    }
 
-	//metal, err := c.GetMetal(s.MetalID)
-	//if err != nil {
-	//	return diag.FromErr(err)
-	//}
-	//setValue("primary_ipv4", metal.PrimaryIPv4, d, &diags)
-	//setValue("primary_ipv6", metal.PrimaryIPv6, d, &diags)
+	metal, err := c.GetMetal(s.MBPKGID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	log.Printf("[DEBUG] METAL: %+v", metal)
+
+	setValue("primary_ipv4", metal.PrimaryIP, d, &diags)
+	setValue("primary_ipv6", metal.PrimaryIPv6, d, &diags)
 	log.Printf("[DEBUG] CreateMetalRequest: %+v", req)
 
 	return nil
 }
 
 func resourceMetalRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    log.Println("[DEBUG] Read called")
+    client := m.(*gona.Client)
 
-    return nil
+    id, err := strconv.Atoi(d.Id())
+    if err != nil {
+        return diag.FromErr(err)
+    }
+
+    metal, err := client.GetMetal(id)
+    if err != nil {
+        return diag.FromErr(err)
+    }
+
+    var diags diag.Diagnostics
+
+    if metal.NPSInstalled == 0 {
+        d.Set("hostname", "")
+        d.Set("primary_ipv4", "")
+        d.Set("primary_ipv6", "")
+    } else {
+        d.Set("hostname", metal.Hostname)
+        d.Set("primary_ipv4", metal.PrimaryIP)
+        if metal.PrimaryIPv6 != nil {
+            d.Set("primary_ipv6", *metal.PrimaryIPv6)
+        } else {
+            d.Set("primary_ipv6", "")
+        }
+    }
+    d.Set("location", metal.DatacenterID)
+    d.Set("device_id", metal.ID)
+
+    return diags
+}
+
+func anyChange(d *schema.ResourceData, fields ...string) bool {
+	for _, f := range fields {
+		if d.HasChange(f) {
+			return true
+		}
+	}
+	return false
 }
 
 func resourceMetalUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    log.Println("[DEBUG] Dummy Update called")
-    return nil
+	c := m.(*gona.Client)
+
+	if !anyChange(d, "profile", "build_script", "hostname", "disklayout") {
+		log.Println("[DEBUG] No relevant changes, skipping update")
+		return nil
+	}
+
+	id, err := strconv.Atoi(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[DEBUG] Updating metal resource ID: %d\n", id)
+    req := &gona.BuildMetalRequest {
+        MBPKGID:                  id,
+        SSHKey:                   d.Get("ssh_key").(string),
+        SSHKeyID:                 d.Get("ssh_key_id").(int),
+        Password:                 d.Get("password").(string),
+        BuildScript:              d.Get("build_script").(string),
+        DiskLayout:               d.Get("disklayout").(int),
+        Profile:                  d.Get("profile").(int),
+        Hostname:                 d.Get("hostname").(string),
+    }
+
+	s, err := c.BuildMetal(id, req)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+    if d := wait4BuildStatus(s.Build, 45, c); d != nil {
+        return d
+    }
+
+	return resourceMetalRead(ctx, d, m)
 }
 
 func resourceMetalDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    log.Println("[DEBUG] Dummy Delete called")
+	c := m.(*gona.Client)
+
+    id, err := strconv.Atoi(d.Id())
+    if err != nil {
+        return diag.FromErr(err)
+    }
+
+	log.Printf("[DEBUG] Deleting metal with ID: %d", id)
+	agreeValue := "true"
+    commentsValue := "Delete from terraform"
+    req := &gona.CancelRequest{
+        MBPKGID:    id,
+        CancelType: "Immediate",
+        Agree:      agreeValue,
+        Comments:   &commentsValue,
+    }
+
+
+    if _, err := c.CancelPackage(req); err != nil {
+        return diag.FromErr(err)
+    }
+
     d.SetId("")
     return nil
 }
