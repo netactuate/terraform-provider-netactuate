@@ -2,7 +2,6 @@ package netactuate
 
 import (
 	"context"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
@@ -25,6 +24,7 @@ func Provider() *schema.Provider {
 			"netactuate_server":       resourceServer(),
 			"netactuate_sshkey":       resourceSshKey(),
 			"netactuate_bgp_sessions": resourceBGPSessions(),
+			"netactuate_metal": resourceMetal(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":       dataSourceServer(),
