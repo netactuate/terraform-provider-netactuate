@@ -3,7 +3,7 @@ package netactuate
 import (
 	"context"
 	//"encoding/base64"
-	//"fmt"
+	"fmt"
 	"regexp"
 	"strconv"
 	//"strings"
@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	metalIntervalSec = 5
+	metalIntervalSec = 10
 )
 
 func resourceMetal() *schema.Resource {
@@ -47,12 +47,19 @@ func resourceMetal() *schema.Resource {
 					return diags
 				},
 			},
-			"location": {
-				Type:         schema.TypeInt,
-				ForceNew:     false,
-				Optional:     true,
-				Computed:     true,
-			},
+            "location": {
+                Type:         schema.TypeString,
+                ForceNew:     false,
+                Optional:     true,
+                ExactlyOneOf: []string{"location", "location_id"},
+            },
+            "location_id": {
+                Type:         schema.TypeInt,
+                ForceNew:     false,
+                Optional:     true,
+                Computed:     true,
+                ExactlyOneOf: []string{"location", "location_id"},
+            },
             "device_id": {
                 Type:     schema.TypeInt,
                 Required: true,
@@ -111,6 +118,41 @@ func resourceMetal() *schema.Resource {
 		),
 	}
 }
+func isNotFoundOrUnprocessable(err error) bool {
+    if err == nil {
+        return false
+    }
+    errMsg := err.Error()
+
+    if regexp.MustCompile(`(?i)404`).MatchString(errMsg) || regexp.MustCompile(`(?i)422`).MatchString(errMsg) {
+        return true
+    }
+
+    return false
+}
+
+func getMetalDatacenter(d *schema.ResourceData, client *gona.Client) (int, *diag.Diagnostic) {
+    if locationIdRaw, ok := d.GetOk("location_id"); ok {
+        return locationIdRaw.(int), nil
+    }
+
+	requestLocation := d.Get("location").(string)
+	if requestLocation == "" {
+		return 0, &diag.Errorf("Please provide correct datacenter")[0]
+	}
+
+	id, err := client.GetDatacenterByIATA(requestLocation)
+	if err != nil {
+		return 0, &diag.FromErr(err)[0]
+	}
+
+	if id == 0 {
+		return 0, &diag.Errorf("Provided location %q doesn't exist", requestLocation)[0]
+	}
+
+	return id, nil
+}
+
 
 func wait4BuildStatus(buildID int, timeoutMinutes int, client *gona.Client) diag.Diagnostics {
     if timeoutMinutes == 0 {
@@ -152,9 +194,14 @@ func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 	diags = diag.Diagnostics{}
 
+    locationId, ld := getMetalDatacenter(d, c)
+
+    if ld != nil {
+        return diag.Diagnostics{*ld}
+    }
 
 	req := &gona.CreateMetalRequest{
-		Location: d.Get("location").(int),
+		Location: locationId,
 		Device:                   d.Get("device_id").(int),
 		SSHKey:                   d.Get("ssh_key").(string),
 		SSHKeyID:                 d.Get("ssh_key_id").(int),
@@ -172,6 +219,8 @@ func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	d.SetId(strconv.Itoa(s.MBPKGID))
+
+    fmt.Println("Provisioning metal server... This may take some time. Please wait...")
 
     if d := wait4BuildStatus(s.Build, 45, c); d != nil {
         return d
@@ -200,7 +249,16 @@ func resourceMetalRead(ctx context.Context, d *schema.ResourceData, m interface{
 
     metal, err := client.GetMetal(id)
     if err != nil {
+        if isNotFoundOrUnprocessable(err) {
+            d.SetId("")
+            return nil
+        }
         return diag.FromErr(err)
+    }
+
+    if metal.Canceling == 1 {
+        d.SetId("")
+        return nil
     }
 
     var diags diag.Diagnostics
@@ -263,6 +321,8 @@ func resourceMetalUpdate(ctx context.Context, d *schema.ResourceData, m interfac
 		return diag.FromErr(err)
 	}
 
+    fmt.Println("Provisioning metal server... This may take some time. Please wait...")
+
     if d := wait4BuildStatus(s.Build, 45, c); d != nil {
         return d
     }
@@ -279,15 +339,14 @@ func resourceMetalDelete(ctx context.Context, d *schema.ResourceData, m interfac
     }
 
 	log.Printf("[DEBUG] Deleting metal with ID: %d", id)
-	agreeValue := "true"
     commentsValue := "Delete from terraform"
+
     req := &gona.CancelRequest{
         MBPKGID:    id,
         CancelType: "Immediate",
-        Agree:      agreeValue,
-        Comments:   &commentsValue,
+        Agree:      1,
+        Comments:  &commentsValue,
     }
-
 
     if _, err := c.CancelPackage(req); err != nil {
         return diag.FromErr(err)
