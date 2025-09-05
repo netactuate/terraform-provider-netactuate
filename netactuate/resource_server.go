@@ -161,6 +161,11 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Description: "Additional JSON formatted parameters to be passed to the server creation and management API",
 			},
+            "tag": {
+                Type:        schema.TypeString,
+                Optional:    true,
+                Description: "Tag to associate with the server",
+            },
 		},
 		CustomizeDiff: customdiff.Sequence(
 			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
@@ -195,7 +200,7 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
 		ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
 		Params:                   d.Get("params").(string), // Handle the new params field
-
+        Tag:                      d.Get("tag").(string),
 	}
 
 	if userData64, ok := d.GetOk("user_data_base64"); ok {
