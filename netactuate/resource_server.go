@@ -80,6 +80,12 @@ func resourceServer() *schema.Resource {
 				ForceNew:     false,
 				Optional:     true,
 			},
+            "cloud_pool_id": {
+                Type:     schema.TypeInt,
+                Optional: true,
+                ForceNew: true,
+                Description: "Cloud pool ID",
+            },
 			"location": {
 				Type:         schema.TypeString,
 				ForceNew:     false,
@@ -218,6 +224,11 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		req.ScriptContent = userData64.(string)
 	}
 
+    if v, ok := d.GetOk("cloud_pool_id"); ok {
+        poolID := v.(int)
+        req.CloudPoolID = &poolID
+    }
+
 	var packageValue = d.Get("package_billing")
 	if packageValue == "package" {
 		optIn, ok := d.GetOk("package_billing_opt_in")
@@ -304,6 +315,7 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
 	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
+    setValue("cloud_pool_id", server.CloudPoolID, d, &diags)
 
 	return diags
 }
@@ -418,7 +430,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			PackageBillingContractId: d.Get("package_billing_contract_id").(string),
 			CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
 			ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
-			Params:                   d.Get("params").(string), // Handle the new params field
+			Params:                   d.Get("params").(string),
 			TagList:                  tags,
 
 		}
@@ -426,6 +438,11 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 		if userData64, ok := d.GetOk("user_data_base64"); ok {
 			req.ScriptContent = userData64.(string)
 		}
+
+        if v, ok := d.GetOk("cloud_pool_id"); ok {
+            poolID := v.(int)
+            req.CloudPoolID = &poolID
+        }
 
 		// Rebuild server with potentially updated params
 		_, err = c.BuildServer(id, req)
