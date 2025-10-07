@@ -161,6 +161,12 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Description: "Additional JSON formatted parameters to be passed to the server creation and management API",
 			},
+            "tag_list": {
+                Type:        schema.TypeList,
+                Optional:    true,
+                Elem:        &schema.Schema{Type: schema.TypeString},
+                Description: "List of tags to associate with the server",
+            },
 		},
 		CustomizeDiff: customdiff.Sequence(
 			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
@@ -181,7 +187,17 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diags
 	}
 	diags = diag.Diagnostics{}
-
+    var tags *[]string
+    if v, ok := d.GetOkExists("tag_list"); ok {
+        raw := v.([]interface{})
+        tmp := make([]string, len(raw))
+        for i, t := range raw {
+            tmp[i] = t.(string)
+        }
+        tags = &tmp
+    } else {
+        tags = nil
+    }
 	req := &gona.CreateServerRequest{
 		Plan:                     d.Get("plan").(string),
 		Location:                 locationId,
@@ -195,7 +211,7 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
 		ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
 		Params:                   d.Get("params").(string), // Handle the new params field
-
+		TagList:                     tags,
 	}
 
 	if userData64, ok := d.GetOk("user_data_base64"); ok {
@@ -294,8 +310,27 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*gona.Client)
+    fieldsToRebuild := []string{
+        "location",
+        "location_id",
+        "image",
+        "image_id",
+        "hostname",
+        "params",
+        "tag_list",
+    }
+
+    rebuildRequired := false
+    for _, f := range fieldsToRebuild {
+        if d.HasChange(f) {
+            rebuildRequired = true
+            break
+        }
+    }
+
+
 	// Rebuild on these property changes
-	if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") || d.HasChange("params") {
+	if rebuildRequired {
 		id, err := strconv.Atoi(d.Id())
 		if err != nil {
 			return diag.FromErr(err)
@@ -360,6 +395,17 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 		if diags != nil {
 			return diags
 		}
+        var tags *[]string
+        if v, ok := d.GetOkExists("tag_list"); ok {
+            raw := v.([]interface{})
+            tmp := make([]string, len(raw))
+            for i, t := range raw {
+                tmp[i] = t.(string)
+            }
+            tags = &tmp
+        } else {
+            tags = nil
+        }
 		req := &gona.BuildServerRequest{
 			Plan:                     d.Get("plan").(string),
 			Location:                 locationId,
@@ -373,6 +419,8 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			CloudConfig:              base64.StdEncoding.EncodeToString([]byte(d.Get("cloud_config").(string))),
 			ScriptContent:            base64.StdEncoding.EncodeToString([]byte(d.Get("user_data").(string))),
 			Params:                   d.Get("params").(string), // Handle the new params field
+			TagList:                  tags,
+
 		}
 
 		if userData64, ok := d.GetOk("user_data_base64"); ok {
