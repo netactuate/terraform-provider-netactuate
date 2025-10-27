@@ -94,7 +94,7 @@ func dataSourceBGPSessions() *schema.Resource {
 	}
 }
 
-func dataSourceBGPSessionsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceBGPSessionsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	MbPkgID := d.Get("mbpkgid").(int)
@@ -104,10 +104,10 @@ func dataSourceBGPSessionsRead(ctx context.Context, d *schema.ResourceData, m in
 		return diag.FromErr(err)
 	}
 
-	result := make([]map[string]interface{}, len(sessions))
+	result := make([]map[string]any, len(sessions))
 
 	for i, session := range sessions {
-		s := make(map[string]interface{})
+		s := make(map[string]any)
 
 		s["id"] = session.ID
 		// s["mb_id"] = session.MbID

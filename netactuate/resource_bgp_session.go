@@ -44,7 +44,7 @@ func resourceBGPSessions() *schema.Resource {
 	}
 }
 
-func resourceBGPSessionCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGPSessionCreate(_ context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	_, err := c.CreateBGPSessions(d.Get("mbpkgid").(int), d.Get("group_id").(int), d.Get("ipv6").(bool),
@@ -58,12 +58,12 @@ func resourceBGPSessionCreate(ctx context.Context, d *schema.ResourceData, m int
 	return nil
 }
 
-func resourceBGPSessionRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGPSessionRead(_ context.Context, _ *schema.ResourceData, _ any) diag.Diagnostics {
 	// Do nothing
 	return nil
 }
 
-func resourceBGPSessionDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGPSessionDelete(_ context.Context, _ *schema.ResourceData, _ any) diag.Diagnostics {
 	// Do nothing
 	return nil
 }

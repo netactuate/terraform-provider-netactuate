@@ -107,7 +107,7 @@ func dataSourceServer() *schema.Resource {
 	}
 }
 
-func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	server, err := c.GetServer(d.Get("id").(int))
@@ -149,7 +149,7 @@ func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m interfa
 		var peerV4 []string
 		var peerV6 []string
 
-		bgpPeers := make(map[string]interface{})
+		bgpPeers := make(map[string]any)
 
 		session := (bgpSessions)[0]
 
@@ -174,7 +174,7 @@ func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m interfa
 			bgpPeers["ipv6"] = peerV6
 		}
 
-		setValue("bgp_peers", []map[string]interface{}{bgpPeers}, d, &diags)
+		setValue("bgp_peers", []map[string]any{bgpPeers}, d, &diags)
 	}
 
 	if diags == nil {

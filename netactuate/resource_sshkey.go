@@ -43,7 +43,7 @@ func resourceSshKey() *schema.Resource {
 	}
 }
 
-func resourceSshKeyCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSshKeyCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	sshKey, err := c.CreateSSHKey(d.Get("name").(string), d.Get("key").(string))
@@ -56,7 +56,7 @@ func resourceSshKeyCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	return nil
 }
 
-func resourceSshKeyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSshKeyRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	id, err := strconv.Atoi(d.Id())
@@ -77,7 +77,7 @@ func resourceSshKeyRead(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 
-func resourceSshKeyDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSshKeyDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	id, err := strconv.Atoi(d.Id())
@@ -97,7 +97,7 @@ func resourceSshKeyDelete(ctx context.Context, d *schema.ResourceData, m interfa
 	return nil
 }
 
-func resourceSshKeyUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSshKeyUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	// Delete the first Key

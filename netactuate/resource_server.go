@@ -44,7 +44,7 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: false,
 				Required: true,
-				ValidateDiagFunc: func(i interface{}, path cty.Path) diag.Diagnostics {
+				ValidateDiagFunc: func(i any, path cty.Path) diag.Diagnostics {
 					var diags diag.Diagnostics
 
 					match, err := regexp.MatchString(hostnameRegex, i.(string))
@@ -163,17 +163,17 @@ func resourceServer() *schema.Resource {
 			},
 		},
 		CustomizeDiff: customdiff.Sequence(
-			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
+			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, _meta any) bool {
 				return d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname")
 			}),
-			customdiff.ComputedIf("primary_ipv6", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
+			customdiff.ComputedIf("primary_ipv6", func(_ context.Context, d *schema.ResourceDiff, _meta any) bool {
 				return d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname")
 			}),
 		),
 	}
 }
 
-func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	locationId, imageId, diags := getParams(d, c)
@@ -247,7 +247,7 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	return nil
 }
 
-func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceServerRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	id, err := strconv.Atoi(d.Id())
@@ -292,7 +292,7 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 
-func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 	// Rebuild on these property changes
 	if d.HasChange("location") || d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname") || d.HasChange("params") {
@@ -397,7 +397,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 	return resourceServerRead(ctx, d, m)
 }
 
-func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	c := m.(*gona.Client)
 
 	id, err := strconv.Atoi(d.Id())
