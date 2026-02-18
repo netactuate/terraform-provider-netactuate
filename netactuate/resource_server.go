@@ -86,6 +86,12 @@ func resourceServer() *schema.Resource {
                 ForceNew: true,
                 Description: "Cloud pool ID",
             },
+            "vpc_id": {
+                Type:        schema.TypeInt,
+                Optional:    true,
+                ForceNew:    true,
+                Description: "VPC ID to deploy the server into",
+            },
 			"location": {
 				Type:         schema.TypeString,
 				ForceNew:     false,
@@ -186,7 +192,7 @@ func resourceServer() *schema.Resource {
 }
 
 func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
 	locationId, imageId, diags := getParams(d, c)
 	if diags != nil {
@@ -227,6 +233,11 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
     if v, ok := d.GetOk("cloud_pool_id"); ok {
         poolID := v.(int)
         req.CloudPoolID = &poolID
+    }
+
+    if v, ok := d.GetOk("vpc_id"); ok {
+        vpcID := v.(int)
+        req.VpcID = &vpcID
     }
 
 	var packageValue = d.Get("package_billing")
@@ -275,7 +286,7 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
 	id, err := strconv.Atoi(d.Id())
 	if err != nil {
@@ -316,12 +327,13 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
 	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
     setValue("cloud_pool_id", server.CloudPoolID, d, &diags)
+    setValue("vpc_id", server.VpcID, d, &diags)
 
 	return diags
 }
 
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
     fieldsToRebuild := []string{
         "location",
         "location_id",
@@ -444,6 +456,11 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
             req.CloudPoolID = &poolID
         }
 
+        if v, ok := d.GetOk("vpc_id"); ok {
+            vpcID := v.(int)
+            req.VpcID = &vpcID
+        }
+
 		// Rebuild server with potentially updated params
 		_, err = c.BuildServer(id, req)
 		if err != nil {
@@ -464,7 +481,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    c := m.(*gona.Client)
+    c := m.(*ProviderClients).V2
 
     id, err := strconv.Atoi(d.Id())
     if err != nil {

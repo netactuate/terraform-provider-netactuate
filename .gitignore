@@ -7,3 +7,6 @@ terraform.tfstate*
 
 vendor
 bin
+main.tf.example
+
+**/main.tf.example

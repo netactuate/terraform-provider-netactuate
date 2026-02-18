@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/netactuate/gona/gona"
 )
 
 func dataSourceSshKey() *schema.Resource {
@@ -34,7 +33,7 @@ func dataSourceSshKey() *schema.Resource {
 }
 
 func dataSourceSshKeyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
 	sshKey, err := c.GetSSHKey(d.Get("id").(int))
 	if err != nil {

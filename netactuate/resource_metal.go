@@ -186,7 +186,7 @@ func wait4BuildStatus(buildID int, timeoutMinutes int, client *gona.Client) diag
 
 
 func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    c := m.(*gona.Client)
+    c := m.(*ProviderClients).V2
 
     var diags diag.Diagnostics
 	if diags != nil {
@@ -240,7 +240,7 @@ func resourceMetalCreate(ctx context.Context, d *schema.ResourceData, m interfac
 }
 
 func resourceMetalRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-    client := m.(*gona.Client)
+    client := m.(*ProviderClients).V2
 
     id, err := strconv.Atoi(d.Id())
     if err != nil {
@@ -292,7 +292,7 @@ func anyChange(d *schema.ResourceData, fields ...string) bool {
 }
 
 func resourceMetalUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
 	if !anyChange(d, "profile", "build_script", "hostname", "disklayout") {
 		log.Println("[DEBUG] No relevant changes, skipping update")
@@ -331,7 +331,7 @@ func resourceMetalUpdate(ctx context.Context, d *schema.ResourceData, m interfac
 }
 
 func resourceMetalDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
     id, err := strconv.Atoi(d.Id())
     if err != nil {

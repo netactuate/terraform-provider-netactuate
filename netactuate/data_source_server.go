@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/netactuate/gona/gona"
 )
 
 func dataSourceServer() *schema.Resource {
@@ -108,7 +107,7 @@ func dataSourceServer() *schema.Resource {
 }
 
 func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
 	server, err := c.GetServer(d.Get("id").(int))
 	if err != nil {

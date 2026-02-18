@@ -7,6 +7,11 @@ import (
 	"github.com/netactuate/gona/gona"
 )
 
+type ProviderClients struct {
+	V2 *gona.Client
+	V3 *gona.V3Client
+}
+
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
@@ -16,15 +21,30 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("NETACTUATE_API_KEY", nil),
 			},
 			"api_url": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"api_url_v3": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Description: "Base URL for the vAPI3 endpoint. Defaults to https://vapi3.netactuate.com",
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"netactuate_server":       resourceServer(),
 			"netactuate_sshkey":       resourceSshKey(),
 			"netactuate_bgp_sessions": resourceBGPSessions(),
-			"netactuate_metal": resourceMetal(),
+			"netactuate_metal":        resourceMetal(),
+			"netactuate_vpc":                        resourceVPC(),
+			"netactuate_vpc_gateway_dnat_rule":       resourceVPCGatewayDNATRule(),
+			"netactuate_vpc_gateway_snat_rule":       resourceVPCGatewaySNATRule(),
+			"netactuate_vpc_gateway_firewall_rule":   resourceVPCGatewayFirewallRule(),
+			"netactuate_vpc_floating_ip":             resourceVPCFloatingIP(),
+			"netactuate_vpc_ssh_key":                 resourceVPCSSHKey(),
+			"netactuate_vpc_backend_template":        resourceVPCBackendTemplate(),
+			"netactuate_network_loadbalancer_group":  resourceNetworkLoadbalancerGroup(),
+			"netactuate_ssl_certificate":             resourceSSLCertificate(),
+			"netactuate_http_loadbalancer_group":     resourceHTTPLoadbalancerGroup(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":       dataSourceServer(),
@@ -40,6 +60,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	apiKey := d.Get("api_key").(string)
 	apiUrl := d.Get("api_url").(string)
+	apiUrlV3 := d.Get("api_url_v3").(string)
 
 	if apiKey == "" {
 		diags = append(diags, diag.Diagnostic{
@@ -51,10 +72,17 @@ variable or 'api_key' property`,
 		return nil, diags
 	}
 
+	var v2Client *gona.Client
 	if apiUrl == "" {
-		return gona.NewClient(apiKey), nil
+		v2Client = gona.NewClient(apiKey)
 	} else {
-		return gona.NewClientCustom(apiKey, apiUrl), nil
+		v2Client = gona.NewClientCustom(apiKey, apiUrl)
 	}
 
+	v3Client := gona.NewV3Client(apiKey, apiUrlV3)
+
+	return &ProviderClients{
+		V2: v2Client,
+		V3: v3Client,
+	}, nil
 }

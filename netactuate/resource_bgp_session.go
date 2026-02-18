@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/netactuate/gona/gona"
 )
 
 func resourceBGPSessions() *schema.Resource {
@@ -45,7 +44,7 @@ func resourceBGPSessions() *schema.Resource {
 }
 
 func resourceBGPSessionCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	c := m.(*gona.Client)
+	c := m.(*ProviderClients).V2
 
 	_, err := c.CreateBGPSessions(d.Get("mbpkgid").(int), d.Get("group_id").(int), d.Get("ipv6").(bool),
 		d.Get("redundant").(bool))
