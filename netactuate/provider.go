@@ -50,6 +50,8 @@ func Provider() *schema.Provider {
 			"netactuate_storage_object_store":        resourceStorageObjectStore(),
 			"netactuate_storage_block_namespace":     resourceStorageBlockNamespace(),
 			"netactuate_storage_block_volume":        resourceStorageBlockVolume(),
+			"netactuate_secret_list":                 resourceSecretList(),
+			"netactuate_secret_list_value":           resourceSecretListValue(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
