@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -164,7 +163,7 @@ func resourceVPC() *schema.Resource {
 func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	locationID, locDiag := getVPCLocation(d, m.(*ProviderClients).V2)
+	locationID, locDiag := getLocationID(d, m.(*ProviderClients).V2)
 	if locDiag != nil {
 		return diag.Diagnostics{*locDiag}
 	}
@@ -396,27 +395,3 @@ func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m interface{
 	return nil
 }
 
-func getVPCLocation(d *schema.ResourceData, c *gona.Client) (int, *diag.Diagnostic) {
-	if v, ok := d.GetOk("location_id"); ok {
-		return v.(int), nil
-	}
-
-	locationName := d.Get("location").(string)
-	if locationName == "" {
-		return 0, &diag.Errorf("Please provide a location or location_id")[0]
-	}
-
-	locations, err := c.GetLocations()
-	if err != nil {
-		return 0, &diag.FromErr(err)[0]
-	}
-
-	for _, loc := range locations {
-		log.Printf("[DEBUG] Available location: ID=%d Name=%q IATACode=%q", loc.ID, loc.Name, loc.IATACode)
-		if strings.EqualFold(loc.Name, locationName) || strings.EqualFold(loc.IATACode, locationName) {
-			return loc.ID, nil
-		}
-	}
-
-	return 0, &diag.Errorf("VPC location %q not found", locationName)[0]
-}

@@ -326,8 +326,6 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
 	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
-    setValue("cloud_pool_id", server.CloudPoolID, d, &diags)
-    setValue("vpc_id", server.VpcID, d, &diags)
 
 	return diags
 }

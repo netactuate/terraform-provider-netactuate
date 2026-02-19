@@ -45,11 +45,15 @@ func Provider() *schema.Provider {
 			"netactuate_network_loadbalancer_group":  resourceNetworkLoadbalancerGroup(),
 			"netactuate_ssl_certificate":             resourceSSLCertificate(),
 			"netactuate_http_loadbalancer_group":     resourceHTTPLoadbalancerGroup(),
+			"netactuate_nke_cluster":                 resourceNKECluster(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"netactuate_server":       dataSourceServer(),
-			"netactuate_sshkey":       dataSourceSshKey(),
-			"netactuate_bgp_sessions": dataSourceBGPSessions(),
+			"netactuate_server":           dataSourceServer(),
+			"netactuate_sshkey":           dataSourceSshKey(),
+			"netactuate_bgp_sessions":     dataSourceBGPSessions(),
+			"netactuate_nke_versions":     dataSourceNKEVersions(),
+			"netactuate_nke_worker_nodes": dataSourceNKEWorkerNodes(),
+			"netactuate_nke_kubeconfig":   dataSourceNKEKubeconfig(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
