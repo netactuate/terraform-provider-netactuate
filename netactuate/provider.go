@@ -46,6 +46,10 @@ func Provider() *schema.Provider {
 			"netactuate_ssl_certificate":             resourceSSLCertificate(),
 			"netactuate_http_loadbalancer_group":     resourceHTTPLoadbalancerGroup(),
 			"netactuate_nke_cluster":                 resourceNKECluster(),
+			"netactuate_storage_bucket":              resourceStorageBucket(),
+			"netactuate_storage_object_store":        resourceStorageObjectStore(),
+			"netactuate_storage_block_namespace":     resourceStorageBlockNamespace(),
+			"netactuate_storage_block_volume":        resourceStorageBlockVolume(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
@@ -54,6 +58,7 @@ func Provider() *schema.Provider {
 			"netactuate_nke_versions":     dataSourceNKEVersions(),
 			"netactuate_nke_worker_nodes": dataSourceNKEWorkerNodes(),
 			"netactuate_nke_kubeconfig":   dataSourceNKEKubeconfig(),
+			"netactuate_storage_locations": dataSourceStorageLocations(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
