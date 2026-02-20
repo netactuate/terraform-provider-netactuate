@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
@@ -52,6 +53,8 @@ func Provider() *schema.Provider {
 			"netactuate_storage_block_volume":        resourceStorageBlockVolume(),
 			"netactuate_secret_list":                 resourceSecretList(),
 			"netactuate_secret_list_value":           resourceSecretListValue(),
+			"netactuate_router":                      resourceRouter(),
+			"netactuate_router_vrf":                  resourceRouterVRF(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
