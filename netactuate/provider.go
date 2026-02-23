@@ -52,6 +52,9 @@ func Provider() *schema.Provider {
 			"netactuate_storage_block_volume":        resourceStorageBlockVolume(),
 			"netactuate_secret_list":                 resourceSecretList(),
 			"netactuate_secret_list_value":           resourceSecretListValue(),
+			"netactuate_firewall_set":                resourceFirewallSet(),
+			"netactuate_firewall_rule":               resourceFirewallRule(),
+			"netactuate_firewall_set_vm":             resourceFirewallSetVM(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
