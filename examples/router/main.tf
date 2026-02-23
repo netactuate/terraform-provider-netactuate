@@ -16,3 +16,12 @@ resource "netactuate_router_vrf" "example" {
   name = "Example Terraform Router VPF"
   description = "Example Terraform Router VPF Description"
 }
+
+resource "netactuate_router_vrf_interface" "example" {
+  router_id = netactuate_router.example.id
+  vrf_id = netactuate_router_vrf.example.id
+  type = "dummy"
+  name = "Example Terraform Router VRF Interface"
+  description = "Example Terraform Router VRF Interface Description"
+  ipv4_cidr = "192.168.0.1/24"
+}

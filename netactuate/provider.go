@@ -55,6 +55,7 @@ func Provider() *schema.Provider {
 			"netactuate_secret_list_value":           resourceSecretListValue(),
 			"netactuate_router":                      resourceRouter(),
 			"netactuate_router_vrf":                  resourceRouterVRF(),
+			"netactuate_router_vrf_interface": 		  resourceRouterVRFInterface(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
