@@ -487,9 +487,21 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
     }
 	log.Printf("[DEBUG] Deleting server with ID: %d", id)
 
-    jobID, err := c.DeleteServer(id, true)
-    if err != nil {
-        return diag.FromErr(err)
+    // Retry delete — the API rejects requests when there are active utility
+    // queues (e.g. a build or other operation still in progress).
+    const deleteRetries = 10
+    const deleteInterval = 20 * time.Second
+    var jobID int
+    for i := 0; i < deleteRetries; i++ {
+        jobID, err = c.DeleteServer(id, true)
+        if err == nil {
+            break
+        }
+        log.Printf("[DEBUG] Delete attempt %d/%d for server %d failed: %s", i+1, deleteRetries, id, err)
+        if i == deleteRetries-1 {
+            return diag.Errorf("failed to delete server %d after %d attempts: %s", id, deleteRetries, err)
+        }
+        time.Sleep(deleteInterval)
     }
 	log.Printf("[DEBUG] Delete job started with jobID: %d", jobID)
 

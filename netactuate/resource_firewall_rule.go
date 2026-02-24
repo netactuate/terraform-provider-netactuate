@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"firewallSetMu serializes draft/publish operations per firewall set.
+	"strconv"
 	"strings"
 	"sync"
 
