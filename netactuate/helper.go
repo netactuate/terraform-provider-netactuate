@@ -15,6 +15,12 @@ func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag
 	}
 }
 
+func setIntPtr(key string, val *int, d *schema.ResourceData, diags *diag.Diagnostics) {
+	if val != nil {
+		setValue(key, *val, d, diags)
+	}
+}
+
 func updateValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
 	_, exists := d.GetOk(key)
 	if exists {
