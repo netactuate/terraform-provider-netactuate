@@ -58,7 +58,9 @@ func Provider() *schema.Provider {
 			"netactuate_router_vrf_interface": 		  resourceRouterVRFInterface(),
 			"netactuate_router_vrf_bgp":			  resourceRouterVRFBGP(),
 			"netactuate_router_vrf_bgp_neighbor": 	  resourceRouterVRFBGPNeighbor(),
-
+			"netactuate_firewall_set":                resourceFirewallSet(),
+			"netactuate_firewall_rule":               resourceFirewallRule(),
+			"netactuate_firewall_set_vm":             resourceFirewallSetVM(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
