@@ -13,12 +13,12 @@ import (
 	"github.com/netactuate/gona/gona"
 )
 
-func resourceRouterVRFSNATRule() *schema.Resource {
+func resourceRouterVRFDNATRule() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceRouterVRFSNATRuleCreate,
-		ReadContext:   resourceRouterVRFSNATRuleRead,
-		UpdateContext: resourceRouterVRFSNATRuleUpdate,
-		DeleteContext: resourceRouterVRFSNATRuleDelete,
+		CreateContext: resourceRouterVRFDNATRuleCreate,
+		ReadContext:   resourceRouterVRFDNATRuleRead,
+		UpdateContext: resourceRouterVRFDNATRuleUpdate,
+		DeleteContext: resourceRouterVRFDNATRuleDelete,
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -32,14 +32,14 @@ func resourceRouterVRFSNATRule() *schema.Resource {
 				ForceNew:    true,
 				Description: "The ID of the VRF",
 			},
-			"snat_rule_id": {
+			"dnat_rule_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "The SNAT rule ID assigned by the API",
+				Description: "The DNAT rule ID assigned by the API",
 			},
 			"ip_version": {
 				Type:             schema.TypeInt,
-				Required:         true,
+				Required:        true,
 				ValidateDiagFunc: validation.ToDiagFunc(validation.IntInSlice([]int{4, 6})),
 				Description:      "IP version for this rule (4 or 6)",
 			},
@@ -100,16 +100,16 @@ func resourceRouterVRFSNATRule() *schema.Resource {
 				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"start", "end", "after"}, false)),
 				Description:      "Place this rule at 'start', 'end', or 'after' another rule",
 			},
-			"priority_after_snat_rule_id": {
+			"priority_after_dnat_rule_id": {
 				Type:          schema.TypeInt,
 				Optional:      true,
-				Description:   "Place this rule after the given SNAT rule ID",
+				Description:   "Place this rule after the given DNAT rule ID",
 			},
 		},
 	}
 }
 
-func buildSNATPortRange(d *schema.ResourceData, startKey, endKey string) *gona.VPCPortRange {
+func buildDNATPortRange(d *schema.ResourceData, startKey, endKey string) *gona.VPCPortRange {
 	start, hasStart := d.GetOk(startKey)
 	end, hasEnd := d.GetOk(endKey)
 
@@ -123,7 +123,7 @@ func buildSNATPortRange(d *schema.ResourceData, startKey, endKey string) *gona.V
 	return portRange
 }
 
-func buildSNATMatchConfig(d *schema.ResourceData) *struct {
+func buildDNATMatchConfig(d *schema.ResourceData) *struct {
 	InterfaceID int              `json:"interfaceId"`
 	Network     string           `json:"network"`
 	Port        *gona.VPCPortRange `json:"port,omitempty"`
@@ -135,11 +135,11 @@ func buildSNATMatchConfig(d *schema.ResourceData) *struct {
 	}{
 		InterfaceID: d.Get("match_interface_id").(int),
 		Network:     d.Get("match_network").(string),
-		Port:        buildSNATPortRange(d, "match_port_start", "match_port_end"),
+		Port:        buildDNATPortRange(d, "match_port_start", "match_port_end"),
 	}
 }
 
-func buildSNATTranslationConfig(d *schema.ResourceData) *struct {
+func buildDNATTranslationConfig(d *schema.ResourceData) *struct {
 	Network string           `json:"network"`
 	Port    *gona.VPCPortRange `json:"port,omitempty"`
 } {
@@ -148,77 +148,78 @@ func buildSNATTranslationConfig(d *schema.ResourceData) *struct {
 		Port    *gona.VPCPortRange `json:"port,omitempty"`
 	}{
 		Network: d.Get("translation_network").(string),
-		Port:    buildSNATPortRange(d, "translation_port_start", "translation_port_end"),
+		Port:    buildDNATPortRange(d, "translation_port_start", "translation_port_end"),
 	}
 }
 
-func buildSNATPriorityConfig(d *schema.ResourceData) *struct {
+func buildDNATPriorityConfig(d *schema.ResourceData) *struct {
 	Location        string `json:"location,omitempty"`
-	AfterSnatRuleId *int    `json:"afterSnatRuleId,omitempty"`
+	AfterDnatRuleId *int    `json:"afterDnatRuleId,omitempty"`
 } {
 
-	var afterSnatRuleID *int
-	if v, ok := d.GetOk("priority_after_snat_rule_id"); ok {
+	var afterDnatRuleID *int
+	if v, ok := d.GetOk("priority_after_dnat_rule_id"); ok {
 		val := v.(int)
-		afterSnatRuleID = &val
+		afterDnatRuleID = &val
 	}
 	location := d.Get("priority_location").(string)
 
 	return &struct {
 		Location        string `json:"location,omitempty"`
-		AfterSnatRuleId *int    `json:"afterSnatRuleId,omitempty"`
+		AfterDnatRuleId *int    `json:"afterDnatRuleId,omitempty"`
 	}{
 		Location:        location,
-		AfterSnatRuleId: afterSnatRuleID,
+		AfterDnatRuleId: afterDnatRuleID,
 	}
 
 }
 
-func resourceRouterVRFSNATRuleCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRouterVRFDNATRuleCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 	ipVersion := d.Get("ip_version").(int)
 
-	req := &gona.CreateRouterVRFSNATRuleRequest{
-		IPVersion:   d.Get("ip_version").(int),
+	req := &gona.CreateRouterVRFDNATRuleRequest{
+		IPVersion:   ipVersion,
 		Protocol:    d.Get("protocol").(string),
-		Match:       buildSNATMatchConfig(d),
-		Translation: buildSNATTranslationConfig(d),
-		Priority:    buildSNATPriorityConfig(d),
+		Match:       buildDNATMatchConfig(d),
+		Translation: buildDNATTranslationConfig(d),
+		Priority:    buildDNATPriorityConfig(d),
 	}
 
 	if v, ok := d.GetOk("description"); ok {
 		req.Description = v.(string)
 	}
 
-	rule, err := c.CreateRouterVRFSNATRule(routerID, vrfID, req)
+	rule, err := c.CreateRouterVRFDNATRule(routerID, vrfID, req)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	var diags diag.Diagnostics
-	d.SetId(strconv.Itoa(rule.SNATRuleID))
+
+	d.SetId(strconv.Itoa(rule.DNATRuleID))
 	setValue("ip_version_computed", ipVersion, d, &diags)
-	return resourceRouterVRFSNATRuleRead(ctx, d, m)
+	return resourceRouterVRFDNATRuleRead(ctx, d, m)
 }
 
-func resourceRouterVRFSNATRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRouterVRFDNATRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 	ipVersion := d.Get("ip_version_computed").(int)
-	snatRuleID, err := strconv.Atoi(d.Id())
+	dnatRuleID, err := strconv.Atoi(d.Id())
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid SNAT rule ID: %w", err))
+		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
 	}
 
-	rule, err := c.GetRouterVRFSNATRule(routerID, vrfID, snatRuleID)
+	rule, err := c.GetRouterVRFDNATRule(routerID, vrfID, dnatRuleID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			log.Printf("[WARN] SNAT rule %d not found in router %d VRF %d, removing from state", snatRuleID, routerID, vrfID)
+			log.Printf("[WARN] DNAT rule %d not found in router %d VRF %d, removing from state", dnatRuleID, routerID, vrfID)
 			d.SetId("")
 			return nil
 		}
@@ -228,7 +229,7 @@ func resourceRouterVRFSNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 	var diags diag.Diagnostics
 
 	setValue("ip_version", ipVersion, d, &diags)
-	setValue("snat_rule_id", rule.SNATRuleID, d, &diags)
+	setValue("dnat_rule_id", rule.DNATRuleID, d, &diags)
 	setValue("protocol", rule.Protocol, d, &diags)
 	setValue("description", rule.Description, d, &diags)
 
@@ -251,34 +252,34 @@ func resourceRouterVRFSNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 
 	if rule.Priority != nil {
 		setValue("priority_location", rule.Priority.Location, d, &diags)
-		setValue("priority_after_snat_rule_id", rule.Priority.AfterSnatRuleId, d, &diags)
+		setValue("priority_after_dnat_rule_id", rule.Priority.AfterDnatRuleId, d, &diags)
 	}
 
 	return diags
 }
 
-func resourceRouterVRFSNATRuleUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRouterVRFDNATRuleUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 	ipVersion := d.Get("ip_version_computed").(int)
 
-	snatRuleID, err := strconv.Atoi(d.Id())
+	dnatRuleID, err := strconv.Atoi(d.Id())
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid SNAT rule ID: %w", err))
+		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
 	}
 
-	req := &gona.UpdateRouterVRFSNATRuleRequest{
+	req := &gona.UpdateRouterVRFDNATRuleRequest{
 		IPVersion: ipVersion,
 		Protocol:    d.Get("protocol").(string),
 		Description: d.Get("description").(string),
-		Match:       buildSNATMatchConfig(d),
-		Translation: buildSNATTranslationConfig(d),
-		Priority:    buildSNATPriorityConfig(d),
+		Match:       buildDNATMatchConfig(d),
+		Translation: buildDNATTranslationConfig(d),
+		Priority:    buildDNATPriorityConfig(d),
 	}
 
-	_, err = c.UpdateRouterVRFSNATRule(routerID, vrfID, snatRuleID, req)
+	_, err = c.UpdateRouterVRFDNATRule(routerID, vrfID, dnatRuleID, req)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -286,20 +287,20 @@ func resourceRouterVRFSNATRuleUpdate(ctx context.Context, d *schema.ResourceData
 	var diags diag.Diagnostics
 
 	setValue("ip_version_computed", ipVersion, d, &diags)
-	return resourceRouterVRFSNATRuleRead(ctx, d, m)
+	return resourceRouterVRFDNATRuleRead(ctx, d, m)
 }
 
-func resourceRouterVRFSNATRuleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRouterVRFDNATRuleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
-	snatRuleID, err := strconv.Atoi(d.Id())
+	dnatRuleID, err := strconv.Atoi(d.Id())
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid SNAT rule ID: %w", err))
+		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
 	}
 
-	err = c.DeleteRouterVRFSNATRule(routerID, vrfID, snatRuleID)
+	err = c.DeleteRouterVRFDNATRule(routerID, vrfID, dnatRuleID)
 	if err != nil {
 		return diag.FromErr(err)
 	}

@@ -59,6 +59,7 @@ func Provider() *schema.Provider {
 			"netactuate_router_vrf_bgp":			  resourceRouterVRFBGP(),
 			"netactuate_router_vrf_bgp_neighbor": 	  resourceRouterVRFBGPNeighbor(),
 			"netactuate_router_vrf_snat_rule": 	  	  resourceRouterVRFSNATRule(),
+			"netactuate_router_vrf_dnat_rule": 		  resourceRouterVRFDNATRule(),
 			"netactuate_firewall_set":                resourceFirewallSet(),
 			"netactuate_firewall_rule":               resourceFirewallRule(),
 			"netactuate_firewall_set_vm":             resourceFirewallSetVM(),
