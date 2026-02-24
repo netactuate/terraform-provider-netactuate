@@ -4,6 +4,7 @@ provider "netactuate" {
   api_url_v3 = "VAPI3_URL"
 }
 
+
 resource "netactuate_router" "example" {
   name = "Example Terraform Router"
   description = "Example Terraform Router Description"
@@ -19,7 +20,7 @@ resource "netactuate_router_vrf" "example" {
 
 resource "netactuate_router_vrf_interface" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
+  vrf_id    = netactuate_router.example.default_vrf_id
   type = "dummy"
   name = "Example Terraform Router VRF Interface"
   description = "Example Terraform Router VRF Interface Description"
@@ -44,4 +45,16 @@ resource "netactuate_router_vrf_bgp_neighbor" "example" {
   ipv4_enabled = true
   ipv6_enabled = true
   remote_asn = 65001
+}
+
+resource "netactuate_router_static_route" "example" {
+  router_id    = netactuate_router.example.id
+  vrf_id       = netactuate_router.example.default_vrf_id
+  network      = "10.0.0.0/24"
+  # To route via next-hop IP, use:
+  # next_hop    = "192.168.0.254"
+  # distance    = 10
+  # To route via interface, use:
+  interface_id = netactuate_router_vrf_interface.example.interface_id
+  description  = "Example static route via interface"
 }
