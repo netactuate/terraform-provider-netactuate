@@ -4,6 +4,7 @@ provider "netactuate" {
   api_url_v3 = "VAPI3_URL"
 }
 
+
 resource "netactuate_router" "example" {
   name = "Example Terraform Router"
   description = "Example Terraform Router Description"
@@ -19,7 +20,7 @@ resource "netactuate_router_vrf" "example" {
 
 resource "netactuate_router_vrf_interface" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
+  vrf_id    = netactuate_router.example.default_vrf_id
   type = "dummy"
   name = "Example Terraform Router VRF Interface"
   description = "Example Terraform Router VRF Interface Description"
@@ -87,4 +88,65 @@ resource "netactuate_router_vrf_tunnel" "example" {
   mtu = 16000
   ipv4_cidr = "192.168.0.1/24"
   endpoint_address_remote = "192.168.1.1"
+}
+
+resource "netactuate_router_prefix_list" "example" {
+  router_id  = netactuate_router.example.id
+  name       = "Example Prefix List"
+  ip_version = 4
+  description = "Allow internal networks"
+
+  rule {
+    action = "permit"
+    prefix = "10.0.0.0/8"
+  }
+
+  rule {
+    action = "permit"
+    prefix = "172.16.0.0/12"
+  }
+
+  rule {
+    action = "deny"
+    prefix = "0.0.0.0/0"
+  }
+}
+
+resource "netactuate_router_prefix_list" "example_ipv6" {
+  router_id   = netactuate_router.example.id
+  name        = "Example Prefix List IPv6"
+  ip_version  = 6
+  description = "Allow internal IPv6 networks"
+
+  rule {
+    action = "permit"
+    prefix = "fd00::/8"
+  }
+
+  rule {
+    action = "deny"
+    prefix = "::/0"
+  }
+}
+
+resource "netactuate_router_static_route" "example" {
+  router_id    = netactuate_router.example.id
+  vrf_id       = netactuate_router.example.default_vrf_id
+  network      = "10.0.0.0/24"
+  # To route via next-hop IP, use:
+  # next_hop    = "192.168.0.254"
+  # distance    = 10
+  # To route via interface, use:
+  interface_id = netactuate_router_vrf_interface.example.interface_id
+  description  = "Example static route via interface"
+}
+
+resource "netactuate_magic_mesh" "example" {
+  name        = "Example Magic Mesh updated"
+  description = "Mesh connecting multiple cloud routers"
+}
+
+resource "netactuate_magic_mesh_router" "example" {
+  mesh_id   = netactuate_magic_mesh.example.id
+  router_id = netactuate_router.example.router_id
 }
