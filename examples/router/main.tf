@@ -77,3 +77,14 @@ resource "netactuate_router_vrf_dnat_rule" "example" {
   translation_port_end = 31000
   priority_location = "end"
 }
+
+resource "netactuate_router_vrf_tunnel" "example" {
+  router_id = netactuate_router.example.id
+  vrf_id = netactuate_router_vrf.example.id
+  ip_key = 676768
+  name = "Example Terraform Router VRF Tunnel"
+  description = "Example Terraform Router VRF Tunnel Description"
+  mtu = 16000
+  ipv4_cidr = "192.168.0.1/24"
+  endpoint_address_remote = "192.168.1.1"
+}
