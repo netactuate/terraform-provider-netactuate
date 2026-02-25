@@ -55,6 +55,7 @@ func Provider() *schema.Provider {
 			"netactuate_firewall_set":                resourceFirewallSet(),
 			"netactuate_firewall_rule":               resourceFirewallRule(),
 			"netactuate_firewall_set_vm":             resourceFirewallSetVM(),
+			"netactuate_image":                       resourceImage(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"netactuate_server":           dataSourceServer(),
@@ -64,6 +65,7 @@ func Provider() *schema.Provider {
 			"netactuate_nke_worker_nodes": dataSourceNKEWorkerNodes(),
 			"netactuate_nke_kubeconfig":   dataSourceNKEKubeconfig(),
 			"netactuate_storage_locations": dataSourceStorageLocations(),
+			"netactuate_image":             dataSourceImage(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
