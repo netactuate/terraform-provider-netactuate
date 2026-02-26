@@ -88,3 +88,31 @@ resource "netactuate_router_vrf_tunnel" "example" {
   ipv4_cidr = "192.168.0.1/24"
   endpoint_address_remote = "192.168.1.1"
 }
+
+# Global IPSec config
+resource "netactuate_router_ipsec" "example" {
+  router_id                = netactuate_router.example.id
+  ike_key_exchange_version = 2
+  ike_encryption           = "aes256"
+  ike_hash                 = "sha256"
+  ike_dh_group_number      = 14
+  ike_lifetime_seconds     = 28800
+  ike_prf                  = "prfsha256"
+  ike_do_auto_renegotiation = true
+  esp_encryption           = "aes256"
+  esp_hash                 = "sha256"
+  esp_lifetime_seconds     = 3600
+}
+
+# Set do_initiate_connection = true to connect, false to disconnect.
+resource "netactuate_router_vrf_ipsec_peer" "example" {
+  router_id   = netactuate_router.example.id
+  vrf_id    = netactuate_router.example.default_vrf_id
+  name        = "Example IPSec Peer updated"
+  description = "Example IPSec Peer Description"
+  remote_id   = "10.0.0.2"
+  psk_secret  = "my-shared-secret"
+  peer_address = "203.0.113.1"
+  overlay_ipv4 = "192.168.100.1/31"
+  do_initiate_connection = true
+}
