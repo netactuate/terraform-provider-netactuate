@@ -64,6 +64,8 @@ func Provider() *schema.Provider {
 			"netactuate_router_vrf_tunnel": 		  resourceRouterVRFTunnel(),
 			"netactuate_router_static_route":          resourceRouterStaticRoute(),
 			"netactuate_router_prefix_list":           resourceRouterPrefixList(),
+			"netactuate_router_ipsec":                resourceRouterIPSec(),
+			"netactuate_router_vrf_ipsec_peer":       resourceRouterVRFIPSecPeer(),
 			"netactuate_magic_mesh":                  resourceMagicMesh(),
 			"netactuate_magic_mesh_router":           resourceMagicMeshRouter(),
 			"netactuate_firewall_set":                resourceFirewallSet(),
