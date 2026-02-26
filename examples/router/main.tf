@@ -12,11 +12,14 @@ resource "netactuate_router" "example" {
   package_id = 857
 }
 
-resource "netactuate_router_vrf" "example" {
-  router_id = netactuate_router.example.id
-  name = "Example Terraform Router VPF"
-  description = "Example Terraform Router VPF Description"
-}
+
+# The cloud router is in a magic mesh and only allows the default VRF configuration.
+#
+# resource "netactuate_router_vrf" "example" {
+#   router_id = netactuate_router.example.id
+#   name = "Example Terraform Router VPF"
+#   description = "Example Terraform Router VPF Description"
+# }
 
 resource "netactuate_router_vrf_interface" "example" {
   router_id = netactuate_router.example.id
@@ -29,7 +32,7 @@ resource "netactuate_router_vrf_interface" "example" {
 
 resource "netactuate_router_vrf_bgp" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
+  vrf_id = netactuate_router.example.default_vrf_id
   local_asn = "65002"
   networks {
     subnet = "168.192.0.0/16"
@@ -38,7 +41,7 @@ resource "netactuate_router_vrf_bgp" "example" {
 
 resource "netactuate_router_vrf_bgp_neighbor" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
+  vrf_id = netactuate_router.example.default_vrf_id
   name = "Example Terraform Router VRF BGP Neighbor"
   description = "Example Terraform Router VRF BGP Neighbor Description"
   address = "192.168.1.1"
@@ -49,7 +52,7 @@ resource "netactuate_router_vrf_bgp_neighbor" "example" {
 
 resource "netactuate_router_vrf_snat_rule" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
+  vrf_id = netactuate_router.example.default_vrf_id
   ip_version = 4
   protocol = "TCP"
   description = "Example Terraform Router VRF SNAT Rule Description"
@@ -65,7 +68,7 @@ resource "netactuate_router_vrf_snat_rule" "example" {
 
 resource "netactuate_router_vrf_dnat_rule" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
+  vrf_id = netactuate_router.example.default_vrf_id
   ip_version = 4
   protocol = "TCP"
   description = "Example Terraform Router VRF DNAT Rule Description"
@@ -81,8 +84,8 @@ resource "netactuate_router_vrf_dnat_rule" "example" {
 
 resource "netactuate_router_vrf_tunnel" "example" {
   router_id = netactuate_router.example.id
-  vrf_id = netactuate_router_vrf.example.id
-  ip_key = 676768
+  vrf_id = netactuate_router.example.default_vrf_id
+  ip_key = 676769
   name = "Example Terraform Router VRF Tunnel"
   description = "Example Terraform Router VRF Tunnel Description"
   mtu = 16000
@@ -149,4 +152,30 @@ resource "netactuate_magic_mesh" "example" {
 resource "netactuate_magic_mesh_router" "example" {
   mesh_id   = netactuate_magic_mesh.example.id
   router_id = netactuate_router.example.router_id
+}
+
+resource "netactuate_router_vrf_dhcp" "example" {
+  router_id = netactuate_router.example.id
+  vrf_id = netactuate_router.example.default_vrf_id
+  enabled = true
+  interface_id = netactuate_router_vrf_interface.example.id
+  subnet = "192.168.0.0/24"
+  lease_timeout = 86400
+  do_ping_check = true
+  default_router_address = "198.51.100.42"
+  client_domain_name = "test-26022026.netactuate.com"
+  range {
+    first_address = "192.168.0.1"
+    last_address = "192.168.0.2"
+  }
+  domain_name_servers {
+    address = "198.51.100.42"
+  }
+  ntp_servers {
+    address = "198.51.100.42"
+  }
+  static_routes {
+    network = "192.168.0.0/24"
+    next_hop = "198.51.100.42"
+  }
 }
