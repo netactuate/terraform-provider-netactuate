@@ -59,8 +59,14 @@ func resourceServer() *schema.Resource {
 			},
 			"plan": {
 				Type:     schema.TypeString,
-				ForceNew: true,
+				ForceNew: false,
 				Required: true,
+			},
+			"allow_reboot": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+				Description: "Allow server reboot during plan scaling (required for RAM downscaling)",
 			},
 			"package_billing": {
 				Type:     schema.TypeString,
@@ -350,6 +356,42 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
         }
     }
 
+    planChanged := d.HasChange("plan")
+
+    // Autoscale when only the plan changes (no rebuild fields changed)
+    if planChanged && !rebuildRequired {
+        id, err := strconv.Atoi(d.Id())
+        if err != nil {
+            return diag.FromErr(err)
+        }
+
+        newPlan := d.Get("plan").(string)
+        allowReboot := d.Get("allow_reboot").(bool)
+
+        log.Printf("[DEBUG] Scaling server %d to plan %q (allow_reboot=%v)", id, newPlan, allowReboot)
+
+        jobID, err := c.ScaleServer(id, &gona.ScaleServerRequest{
+            PkgName:     newPlan,
+            AllowReboot: allowReboot,
+        })
+        if err != nil {
+            return diag.FromErr(err)
+        }
+
+        log.Printf("[DEBUG] Scale job started with jobID: %d", jobID)
+
+        if d := wait4JobStatus("scale_vm", jobID, c); d != nil {
+            return d
+        }
+
+        log.Printf("[DEBUG] Scale job %d completed, waiting for server to be RUNNING", jobID)
+
+        if _, err := wait4Status(id, "RUNNING", c); err != nil {
+            return err
+        }
+
+        return resourceServerRead(ctx, d, m)
+    }
 
 	// Rebuild on these property changes
 	if rebuildRequired {
