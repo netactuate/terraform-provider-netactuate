@@ -140,6 +140,10 @@ func resourceRouterIPSecRead(ctx context.Context, d *schema.ResourceData, m inte
 
 	config, err := c.GetRouterIPSecConfig(routerID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

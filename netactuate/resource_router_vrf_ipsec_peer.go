@@ -147,6 +147,10 @@ func resourceRouterVRFIPSecPeerRead(ctx context.Context, d *schema.ResourceData,
 
 	peer, err := c.GetRouterVRFIPSecPeer(routerID, vrfID, peerID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

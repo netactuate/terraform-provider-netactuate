@@ -152,6 +152,9 @@ func resourceRouterVRFInterfaceRead(ctx context.Context, d *schema.ResourceData,
 	setValue("ipv4_cidr", interfaceVRF.IPv4CIDR, d, &diags)
 	setValue("ipv6_cidr", interfaceVRF.IPv6CIDR, d, &diags)
 	setValue("ethernet_hardware_id", interfaceVRF.EthernetHardwareID, d, &diags)
+	if interfaceVRF.WireguardPort != nil {
+		setValue("wireguard_port", *interfaceVRF.WireguardPort, d, &diags)
+	}
 
 	return diags
 }

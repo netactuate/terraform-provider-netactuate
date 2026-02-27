@@ -218,6 +218,10 @@ func resourceRouterVRFSNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 
 	rule, err := c.GetRouterVRFSNATRule(routerID, vrfID, snatRuleID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -304,6 +308,9 @@ func resourceRouterVRFSNATRuleDelete(ctx context.Context, d *schema.ResourceData
 
 	err = c.DeleteRouterVRFSNATRule(routerID, vrfID, snatRuleID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

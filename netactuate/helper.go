@@ -75,3 +75,21 @@ func getStorageLocationID(d *schema.ResourceData, c *gona.V3Client) (int, *diag.
 
 	return 0, &diag.Errorf("storage location %q not found", locationName)[0]
 }
+
+// getPackageID resolves a plan name string to its integer package ID via the V2 GetPlans API.
+func getPackageID(planName string, c *gona.Client) (int, *diag.Diagnostic) {
+	plans, err := c.GetPlans()
+	if err != nil {
+		d := diag.FromErr(err)[0]
+		return 0, &d
+	}
+
+	for _, plan := range plans {
+		if strings.EqualFold(plan.Name, planName) {
+			return plan.ID, nil
+		}
+	}
+
+	notFound := diag.Errorf("plan %q not found", planName)[0]
+	return 0, &notFound
+}

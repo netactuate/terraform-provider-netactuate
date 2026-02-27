@@ -9,7 +9,9 @@ resource "netactuate_router" "example" {
   name = "Example Terraform Router"
   description = "Example Terraform Router Description"
   location    = "DEVRDU - Raleigh, NC"
-  package_id = 857
+  plan        = "VR2x2x25"
+  # Alternatively, use package_id directly:
+  # package_id = 857
 }
 
 

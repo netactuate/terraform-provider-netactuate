@@ -99,27 +99,28 @@ func resourceRouterVRFUpdate(ctx context.Context, d *schema.ResourceData, m inte
 
 	routerID := d.Get("router_id").(int)
 	vrfID, err := strconv.Atoi(d.Id())
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if d.HasChanges("name", "description") {
-		name := d.Get("name").(string)
-		description := d.Get("description").(string)
+	if !d.HasChanges("name", "description") {
+		return nil
+	}
 
-		updateRequest := gona.UpdateRouterVRFRequest{
-			Name:        &name,
-			Description: &description,
-		}
+	unlock := lockRouter(routerID)
+	defer unlock()
 
-		_, err := c.UpdateRouterVRF(routerID, vrfID, updateRequest)
-		if err != nil {
-			return diag.FromErr(err)
-		}
+	name := d.Get("name").(string)
+	description := d.Get("description").(string)
+
+	updateRequest := gona.UpdateRouterVRFRequest{
+		Name:        &name,
+		Description: &description,
+	}
+
+	_, err = c.UpdateRouterVRF(routerID, vrfID, updateRequest)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourceRouterVRFRead(ctx, d, m)

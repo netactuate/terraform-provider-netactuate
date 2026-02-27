@@ -219,6 +219,10 @@ func resourceRouterVRFDNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 
 	rule, err := c.GetRouterVRFDNATRule(routerID, vrfID, dnatRuleID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
