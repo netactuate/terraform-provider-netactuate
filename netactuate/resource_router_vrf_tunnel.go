@@ -250,9 +250,10 @@ func resourceRouterVRFTunnelDelete(ctx context.Context, d *schema.ResourceData, 
 
 	err = c.DeleteRouterVRFTunnel(routerID, vrfID, tunnelID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
-
-	d.SetId("")
 	return nil
 }

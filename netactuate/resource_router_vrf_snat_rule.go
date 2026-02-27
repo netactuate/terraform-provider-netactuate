@@ -304,6 +304,9 @@ func resourceRouterVRFSNATRuleDelete(ctx context.Context, d *schema.ResourceData
 
 	err = c.DeleteRouterVRFSNATRule(routerID, vrfID, snatRuleID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

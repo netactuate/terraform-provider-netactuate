@@ -208,9 +208,11 @@ func resourceRouterIPSecDelete(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	if err := c.UpdateRouterIPSecConfig(routerID, defaults); err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
-	d.SetId("")
 	return nil
 }

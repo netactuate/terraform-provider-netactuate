@@ -222,6 +222,9 @@ func resourceRouterDelete(ctx context.Context, d *schema.ResourceData, m interfa
 
 	err = c.DeleteRouter(id)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
