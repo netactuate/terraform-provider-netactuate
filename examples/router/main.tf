@@ -16,12 +16,18 @@ resource "netactuate_router" "example" {
 # The cloud router is in a magic mesh and only allows the default VRF configuration.
 #
 # resource "netactuate_router_vrf" "example" {
+#   depends_on = [
+#     netactuate_router.example
+#   ]
 #   router_id = netactuate_router.example.id
 #   name = "Example Terraform Router VPF"
 #   description = "Example Terraform Router VPF Description"
 # }
 
 resource "netactuate_router_vrf_interface" "example" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id    = netactuate_router.example.default_vrf_id
   type = "dummy"
@@ -31,6 +37,9 @@ resource "netactuate_router_vrf_interface" "example" {
 }
 
 resource "netactuate_router_vrf_bgp" "example" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   local_asn = "65002"
@@ -40,6 +49,9 @@ resource "netactuate_router_vrf_bgp" "example" {
 }
 
 resource "netactuate_router_vrf_bgp_neighbor" "example" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   name = "Example Terraform Router VRF BGP Neighbor"
@@ -51,6 +63,10 @@ resource "netactuate_router_vrf_bgp_neighbor" "example" {
 }
 
 resource "netactuate_router_vrf_snat_rule" "example" {
+  depends_on = [
+    netactuate_router.example,
+    netactuate_router_vrf_interface.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   ip_version = 4
@@ -67,6 +83,10 @@ resource "netactuate_router_vrf_snat_rule" "example" {
 }
 
 resource "netactuate_router_vrf_dnat_rule" "example" {
+  depends_on = [
+    netactuate_router.example,
+    netactuate_router_vrf_interface.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   ip_version = 4
@@ -83,6 +103,9 @@ resource "netactuate_router_vrf_dnat_rule" "example" {
 }
 
 resource "netactuate_router_vrf_tunnel" "example" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   ip_key = 676769
@@ -94,6 +117,9 @@ resource "netactuate_router_vrf_tunnel" "example" {
 }
 
 resource "netactuate_router_prefix_list" "example" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id  = netactuate_router.example.id
   name       = "Example Prefix List"
   ip_version = 4
@@ -116,6 +142,9 @@ resource "netactuate_router_prefix_list" "example" {
 }
 
 resource "netactuate_router_prefix_list" "example_ipv6" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id   = netactuate_router.example.id
   name        = "Example Prefix List IPv6"
   ip_version  = 6
@@ -133,6 +162,9 @@ resource "netactuate_router_prefix_list" "example_ipv6" {
 }
 
 resource "netactuate_router_static_route" "example" {
+  depends_on = [
+    netactuate_router.example
+  ]
   router_id    = netactuate_router.example.id
   vrf_id       = netactuate_router.example.default_vrf_id
   network      = "10.0.0.0/24"
@@ -150,11 +182,19 @@ resource "netactuate_magic_mesh" "example" {
 }
 
 resource "netactuate_magic_mesh_router" "example" {
+  depends_on = [
+    netactuate_router.example,
+    netactuate_magic_mesh.example
+  ]
   mesh_id   = netactuate_magic_mesh.example.id
   router_id = netactuate_router.example.router_id
 }
 
 resource "netactuate_router_vrf_dhcp" "example" {
+  depends_on = [
+    netactuate_router.example,
+    netactuate_router_vrf_interface.example
+  ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   enabled = true
@@ -182,6 +222,7 @@ resource "netactuate_router_vrf_dhcp" "example" {
 
 # Global IPSec config
 resource "netactuate_router_ipsec" "example" {
+  depends_on = [netactuate_router.example]
   router_id                = netactuate_router.example.id
   ike_key_exchange_version = 2
   ike_encryption           = "aes256"
@@ -197,6 +238,10 @@ resource "netactuate_router_ipsec" "example" {
 
 # Set do_initiate_connection = true to connect, false to disconnect.
 resource "netactuate_router_vrf_ipsec_peer" "example" {
+  depends_on = [
+    netactuate_router.example,
+    netactuate_router_ipsec.example
+  ]
   router_id   = netactuate_router.example.id
   vrf_id    = netactuate_router.example.default_vrf_id
   name        = "Example IPSec Peer updated"
@@ -206,4 +251,19 @@ resource "netactuate_router_vrf_ipsec_peer" "example" {
   peer_address = "203.0.113.1"
   overlay_ipv4 = "192.168.100.1/31"
   do_initiate_connection = true
+}
+
+resource "netactuate_router_ntp" "example" {
+  depends_on = [netactuate_router.example]
+  router_id = netactuate_router.example.id
+  enabled = true
+  upstreams {
+    domain = "0.vyatta.pool.ntp.org"
+  }
+  upstreams {
+    domain = "1.vyatta.pool.ntp.org"
+  }
+  upstreams {
+    domain = "2.vyatta.pool.ntp.org"
+  }
 }
