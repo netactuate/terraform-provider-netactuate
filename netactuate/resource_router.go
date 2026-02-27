@@ -75,11 +75,21 @@ func resourceRouter() *schema.Resource {
 				Computed:    true,
 				Description: "The current status of the cloud router (e.g., 'offline', 'active').",
 			},
+			"plan": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ExactlyOneOf: []string{"plan", "package_id"},
+				Description:  "Plan/package name for the cloud router (e.g. \"VR2x2x25\"). Resolved to package_id on create.",
+			},
 			"package_id": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
-				Description: "The id of the package for the server which backs your cloud router.",
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				ExactlyOneOf: []string{"plan", "package_id"},
+				Description:  "The id of the package for the server which backs your cloud router.",
 			},
 			"location": {
 				Type:         schema.TypeString,
@@ -124,6 +134,10 @@ func resourceRouterRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	router, err := c.GetRouterConfig(id)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -143,18 +157,39 @@ func resourceRouterRead(ctx context.Context, d *schema.ResourceData, m interface
 }
 
 func resourceRouterCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	v2 := m.(*ProviderClients).V2
 	c := m.(*ProviderClients).V3
 
-	locationID, locDiag := getLocationID(d, m.(*ProviderClients).V2)
+	locationID, locDiag := getLocationID(d, v2)
 	if locDiag != nil {
 		return diag.Diagnostics{*locDiag}
+	}
+	var packageID int
+	if planName, ok := d.GetOk("plan"); ok {
+		id, pkgDiag := getPackageID(planName.(string), v2)
+		if pkgDiag != nil {
+			return diag.Diagnostics{*pkgDiag}
+		}
+		packageID = id
+		d.Set("package_id", packageID)
+	} else {
+		packageID = d.Get("package_id").(int)
+		plans, err := v2.GetPlans()
+		if err == nil {
+			for _, p := range plans {
+				if p.ID == packageID {
+					d.Set("plan", p.Name)
+					break
+				}
+			}
+		}
 	}
 
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)
 
 	req := &gona.CreateRouterRequest{
-		PackageID:   d.Get("package_id").(int),
+		PackageID:   packageID,
 		LocationID:  locationID,
 		Name:        &name,
 		Description: &description,
@@ -186,12 +221,12 @@ func resourceRouterUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
-	unlock := lockRouter(id)
-	defer unlock()
-
 	if !d.HasChange("name") && !d.HasChange("description") {
 		return nil
 	}
+
+	unlock := lockRouter(id)
+	defer unlock()
 
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)

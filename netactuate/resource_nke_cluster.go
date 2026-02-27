@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -166,7 +165,7 @@ func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Diagnostics{*locDiag}
 	}
 
-	packageID, pkgDiag := getNKEPackageID(d.Get("plan").(string), v2)
+	packageID, pkgDiag := getPackageID(d.Get("plan").(string), v2)
 	if pkgDiag != nil {
 		return diag.Diagnostics{*pkgDiag}
 	}
@@ -285,7 +284,7 @@ func resourceNKEClusterUpdate(ctx context.Context, d *schema.ResourceData, m int
 		changed = true
 	}
 	if d.HasChange("plan") {
-		pkgID, pkgDiag := getNKEPackageID(d.Get("plan").(string), v2)
+		pkgID, pkgDiag := getPackageID(d.Get("plan").(string), v2)
 		if pkgDiag != nil {
 			return diag.Diagnostics{*pkgDiag}
 		}
@@ -347,24 +346,5 @@ func resourceNKEClusterDelete(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	return nil
-}
-
-
-// getNKEPackageID resolves a plan name string to its integer plan ID via the V2 GetPlans API.
-func getNKEPackageID(planName string, c *gona.Client) (int, *diag.Diagnostic) {
-	plans, err := c.GetPlans()
-	if err != nil {
-		d := diag.FromErr(err)[0]
-		return 0, &d
-	}
-
-	for _, plan := range plans {
-		if strings.EqualFold(plan.Name, planName) {
-			return plan.ID, nil
-		}
-	}
-
-	notFound := diag.Errorf("plan %q not found", planName)[0]
-	return 0, &notFound
 }
 

@@ -136,37 +136,39 @@ func resourceRouterNTPUpdate(ctx context.Context, d *schema.ResourceData, m inte
 		return diag.FromErr(err)
 	}
 
+	if !d.HasChanges("enabled", "interface_id", "upstreams") {
+		return nil
+	}
+
 	unlock := lockRouter(routerID)
 	defer unlock()
 
-	if d.HasChanges("enabled", "interface_id", "upstreams") {
-		enabled := d.Get("enabled").(bool)
+	enabled := d.Get("enabled").(bool)
 
-		updateRequest := gona.UpdateRouterNTPConfigRequest{
-			Enabled: &enabled,
-		}
+	updateRequest := gona.UpdateRouterNTPConfigRequest{
+		Enabled: &enabled,
+	}
 
-		if v, ok := d.GetOk("interface_id"); ok {
-			interfaceID := v.(int)
-			updateRequest.InterfaceID = &interfaceID
-		}
+	if v, ok := d.GetOk("interface_id"); ok {
+		interfaceID := v.(int)
+		updateRequest.InterfaceID = &interfaceID
+	}
 
-		if v, ok := d.GetOk("upstreams"); ok {
-			upstreamsList := v.([]interface{})
-			upstreams := make([]gona.RouterNTPUpstream, len(upstreamsList))
-			for i, upstream := range upstreamsList {
-				upstreamMap := upstream.(map[string]interface{})
-				upstreams[i] = gona.RouterNTPUpstream{
-					Domain: upstreamMap["domain"].(string),
-				}
+	if v, ok := d.GetOk("upstreams"); ok {
+		upstreamsList := v.([]interface{})
+		upstreams := make([]gona.RouterNTPUpstream, len(upstreamsList))
+		for i, upstream := range upstreamsList {
+			upstreamMap := upstream.(map[string]interface{})
+			upstreams[i] = gona.RouterNTPUpstream{
+				Domain: upstreamMap["domain"].(string),
 			}
-			updateRequest.Upstreams = upstreams
 		}
+		updateRequest.Upstreams = upstreams
+	}
 
-		_, err := c.UpdateRouterNTPConfig(routerID, updateRequest)
-		if err != nil {
-			return diag.FromErr(err)
-		}
+	_, err = c.UpdateRouterNTPConfig(routerID, updateRequest)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourceRouterNTPRead(ctx, d, m)

@@ -157,6 +157,10 @@ func resourceRouterVRFTunnelRead(ctx context.Context, d *schema.ResourceData, m 
 
 	tunnel, err := c.GetRouterVRFTunnel(routerID, vrfID, tunnelID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
