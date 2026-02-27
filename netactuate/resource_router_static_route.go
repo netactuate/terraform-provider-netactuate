@@ -107,6 +107,9 @@ func resourceRouterStaticRouteCreate(ctx context.Context, d *schema.ResourceData
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	createRequest := gona.CreateRouterStaticRouteRequest{
 		Network: d.Get("network").(string),
 		Via:     buildStaticRouteVia(d),
@@ -186,6 +189,9 @@ func resourceRouterStaticRouteUpdate(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	updateRequest := gona.UpdateRouterStaticRouteRequest{
 		Network: d.Get("network").(string),
 		Via:     buildStaticRouteVia(d),
@@ -215,6 +221,9 @@ func resourceRouterStaticRouteDelete(ctx context.Context, d *schema.ResourceData
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterStaticRoute(routerID, vrfID, routeID)
 	if err != nil {

@@ -80,6 +80,9 @@ func resourceRouterPrefixListCreate(ctx context.Context, d *schema.ResourceData,
 
 	routerID := d.Get("router_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	req := &gona.CreateRouterPrefixListRequest{
 		Name:      d.Get("name").(string),
 		IPVersion: d.Get("ip_version").(int),
@@ -143,6 +146,9 @@ func resourceRouterPrefixListUpdate(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	req := &gona.UpdateRouterPrefixListRequest{
 		Name:      d.Get("name").(string),
 		IPVersion: d.Get("ip_version").(int),
@@ -168,6 +174,9 @@ func resourceRouterPrefixListDelete(ctx context.Context, d *schema.ResourceData,
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterPrefixList(routerID, prefixListID)
 	if err != nil {

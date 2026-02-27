@@ -56,8 +56,10 @@ func resourceRouterNTP() *schema.Resource {
 func resourceRouterNTPCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 	routerID := d.Get("router_id").(int)
-
 	enabled := d.Get("enabled").(bool)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	updateRequest := gona.UpdateRouterNTPConfigRequest{
 		Enabled: &enabled,
@@ -134,6 +136,9 @@ func resourceRouterNTPUpdate(ctx context.Context, d *schema.ResourceData, m inte
 		return diag.FromErr(err)
 	}
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	if d.HasChanges("enabled", "interface_id", "upstreams") {
 		enabled := d.Get("enabled").(bool)
 
@@ -174,6 +179,9 @@ func resourceRouterNTPDelete(ctx context.Context, d *schema.ResourceData, m inte
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	_, err = c.GetRouter(routerID)
 	if err != nil {

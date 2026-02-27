@@ -117,6 +117,9 @@ func resourceRouterIPSecCreate(ctx context.Context, d *schema.ResourceData, m in
 
 	routerID := d.Get("router_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	req := buildIPSecConfigRequest(d)
 	if err := c.UpdateRouterIPSecConfig(routerID, req); err != nil {
 		return diag.FromErr(err)
@@ -165,6 +168,9 @@ func resourceRouterIPSecUpdate(ctx context.Context, d *schema.ResourceData, m in
 		return diag.FromErr(err)
 	}
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	req := buildIPSecConfigRequest(d)
 	if err := c.UpdateRouterIPSecConfig(routerID, req); err != nil {
 		return diag.FromErr(err)
@@ -180,6 +186,9 @@ func resourceRouterIPSecDelete(ctx context.Context, d *schema.ResourceData, m in
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	defaults := gona.UpdateRouterIPSecConfigRequest{
 		IKEGroup: gona.RouterIPSecIKEGroup{

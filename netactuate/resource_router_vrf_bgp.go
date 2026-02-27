@@ -93,6 +93,9 @@ func resourceRouterVRFBGPUpdate(ctx context.Context, d *schema.ResourceData, m i
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	updateRequest := gona.UpdateRouterVRFBGPRequest{}
 
 	if v, ok := d.GetOk("local_asn"); ok {

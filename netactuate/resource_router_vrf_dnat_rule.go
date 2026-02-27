@@ -179,6 +179,9 @@ func resourceRouterVRFDNATRuleCreate(ctx context.Context, d *schema.ResourceData
 	vrfID := d.Get("vrf_id").(int)
 	ipVersion := d.Get("ip_version").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	req := &gona.CreateRouterVRFDNATRuleRequest{
 		IPVersion:   ipVersion,
 		Protocol:    d.Get("protocol").(string),
@@ -258,6 +261,9 @@ func resourceRouterVRFDNATRuleUpdate(ctx context.Context, d *schema.ResourceData
 	vrfID := d.Get("vrf_id").(int)
 	ipVersion := d.Get("ip_version_computed").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	dnatRuleID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
@@ -288,6 +294,10 @@ func resourceRouterVRFDNATRuleDelete(ctx context.Context, d *schema.ResourceData
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	dnatRuleID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
@@ -295,6 +305,9 @@ func resourceRouterVRFDNATRuleDelete(ctx context.Context, d *schema.ResourceData
 
 	err = c.DeleteRouterVRFDNATRule(routerID, vrfID, dnatRuleID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

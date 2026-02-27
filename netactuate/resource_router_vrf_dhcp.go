@@ -147,6 +147,9 @@ func resourceRouterVRFDHCPUpdate(ctx context.Context, d *schema.ResourceData, m 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	updateRequest := gona.UpdateRouterVRFDHCPRequest{
 		Enabled:              d.Get("enabled").(bool),
 		Subnet:               d.Get("subnet").(string),
@@ -297,6 +300,9 @@ func resourceRouterVRFDHCPDelete(ctx context.Context, d *schema.ResourceData, m 
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	_, err := c.GetRouter(routerID)
 	if err != nil {

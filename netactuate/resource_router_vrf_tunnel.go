@@ -108,6 +108,9 @@ func resourceRouterVRFTunnelCreate(ctx context.Context, d *schema.ResourceData, 
 	mtu := d.Get("mtu").(int)
 	endpointRemote := d.Get("endpoint_address_remote").(string)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	createRequest := gona.CreateRouterVRFTunnelRequest{
 		IPKey: ipKey,
 		Name:  name,
@@ -185,6 +188,10 @@ func resourceRouterVRFTunnelUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	tunnelID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
@@ -232,6 +239,10 @@ func resourceRouterVRFTunnelDelete(ctx context.Context, d *schema.ResourceData, 
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	tunnelID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.FromErr(err)

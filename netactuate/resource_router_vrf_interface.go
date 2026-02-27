@@ -90,6 +90,9 @@ func resourceRouterVRFInterfaceCreate(ctx context.Context, d *schema.ResourceDat
 	description := d.Get("description").(string)
 	ethernetHardwareID := d.Get("ethernet_hardware_id").(string)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	createRequest := gona.CreateRouterVRFInterfaceRequest{
 		Type:        interfaceType,
 		Name:        name,
@@ -158,6 +161,10 @@ func resourceRouterVRFInterfaceUpdate(ctx context.Context, d *schema.ResourceDat
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	interfaceID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
@@ -203,6 +210,10 @@ func resourceRouterVRFInterfaceDelete(ctx context.Context, d *schema.ResourceDat
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	interfaceID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return diag.FromErr(err)

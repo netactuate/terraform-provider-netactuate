@@ -51,6 +51,9 @@ func resourceRouterVRFCreate(ctx context.Context, d *schema.ResourceData, m inte
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	createRequest := gona.CreateRouterVRFRequest{
 		Name:        &name,
 		Description: &description,
@@ -97,6 +100,9 @@ func resourceRouterVRFUpdate(ctx context.Context, d *schema.ResourceData, m inte
 	routerID := d.Get("router_id").(int)
 	vrfID, err := strconv.Atoi(d.Id())
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -124,6 +130,9 @@ func resourceRouterVRFDelete(ctx context.Context, d *schema.ResourceData, m inte
 
 	routerID := d.Get("router_id").(int)
 	vrfID, err := strconv.Atoi(d.Id())
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	if err != nil {
 		return diag.FromErr(err)

@@ -181,6 +181,9 @@ func resourceRouterVRFBGPNeighborCreate(ctx context.Context, d *schema.ResourceD
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	createRequest := gona.CreateRouterVRFBGPNeighborRequest{
 		Address:        d.Get("address").(string),
 		IsShutdown:     d.Get("is_shutdown").(bool),
@@ -365,6 +368,9 @@ func resourceRouterVRFBGPNeighborUpdate(ctx context.Context, d *schema.ResourceD
 	vrfID := d.Get("vrf_id").(int)
 	neighborID := d.Get("neighbor_id").(int)
 
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	updateRequest := gona.UpdateRouterVRFBGPNeighborRequest{
 		Address:        d.Get("address").(string),
 		IsShutdown:     d.Get("is_shutdown").(bool),
@@ -464,6 +470,9 @@ func resourceRouterVRFBGPNeighborDelete(ctx context.Context, d *schema.ResourceD
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
 	neighborID := d.Get("neighbor_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err := c.DeleteRouterVRFBGPNeighbor(routerID, vrfID, neighborID)
 	if err != nil {

@@ -4,11 +4,29 @@ import (
 	"context"
 	"log"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
 )
+
+const (
+	routerQueryDelay = 30 * time.Second
+)
+
+var routerMu sync.Map
+
+func lockRouter(id int) func() {
+	val, _ := routerMu.LoadOrStore(id, &sync.Mutex{})
+	mu := val.(*sync.Mutex)
+	mu.Lock()
+	return func() {
+		time.Sleep(routerQueryDelay)
+		mu.Unlock()
+	}
+}
 
 func resourceRouter() *schema.Resource {
 	return &schema.Resource{
@@ -168,12 +186,12 @@ func resourceRouterUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
+	unlock := lockRouter(id)
+	defer unlock()
+
 	if !d.HasChange("name") && !d.HasChange("description") {
-		log.Println("[DEBUG] No relevant changes, skipping update")
 		return nil
 	}
-
-	log.Printf("[DEBUG] Updating cloud router with ID: %d", id)
 
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)
@@ -199,14 +217,13 @@ func resourceRouterDelete(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] Deleting cloud router with ID: %d", id)
+	unlock := lockRouter(id)
+	defer unlock()
 
 	err = c.DeleteRouter(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	log.Printf("[DEBUG] Cloud router %d deleted successfully", id)
 
 	return nil
 }
