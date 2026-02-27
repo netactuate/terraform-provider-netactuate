@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
@@ -52,6 +53,22 @@ func Provider() *schema.Provider {
 			"netactuate_storage_block_volume":        resourceStorageBlockVolume(),
 			"netactuate_secret_list":                 resourceSecretList(),
 			"netactuate_secret_list_value":           resourceSecretListValue(),
+			"netactuate_router":                      resourceRouter(),
+			"netactuate_router_ntp": 				  resourceRouterNTP(),
+			"netactuate_router_vrf":                  resourceRouterVRF(),
+			"netactuate_router_vrf_dhcp": 			  resourceRouterVRFDHCP(),
+			"netactuate_router_vrf_interface": 		  resourceRouterVRFInterface(),
+			"netactuate_router_vrf_bgp":			  resourceRouterVRFBGP(),
+			"netactuate_router_vrf_bgp_neighbor": 	  resourceRouterVRFBGPNeighbor(),
+			"netactuate_router_vrf_snat_rule": 	  	  resourceRouterVRFSNATRule(),
+			"netactuate_router_vrf_dnat_rule": 		  resourceRouterVRFDNATRule(),
+			"netactuate_router_vrf_tunnel": 		  resourceRouterVRFTunnel(),
+			"netactuate_router_static_route":          resourceRouterStaticRoute(),
+			"netactuate_router_prefix_list":           resourceRouterPrefixList(),
+			"netactuate_router_ipsec":                resourceRouterIPSec(),
+			"netactuate_router_vrf_ipsec_peer":       resourceRouterVRFIPSecPeer(),
+			"netactuate_magic_mesh":                  resourceMagicMesh(),
+			"netactuate_magic_mesh_router":           resourceMagicMeshRouter(),
 			"netactuate_firewall_set":                resourceFirewallSet(),
 			"netactuate_firewall_rule":               resourceFirewallRule(),
 			"netactuate_firewall_set_vm":             resourceFirewallSetVM(),
