@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	routerQueryDelay = 30 * time.Second
+	routerQueryDelay = 60 * time.Second
 )
 
 var routerMu sync.Map

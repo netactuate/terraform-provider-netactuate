@@ -192,6 +192,8 @@ resource "netactuate_magic_mesh_router" "example" {
   router_id = netactuate_router.example.router_id
 }
 
+# You may not use the "wireguard" type interface (netactuate_router_vrf_interface) for DHCP because
+# it does not support broadcast messages.
 resource "netactuate_router_vrf_dhcp" "example" {
   depends_on = [
     netactuate_router.example,
@@ -269,3 +271,15 @@ resource "netactuate_router_ntp" "example" {
     domain = "2.vyatta.pool.ntp.org"
   }
 }
+
+# Works only with the "wireguard" interface type (netactuate_router_vrf_interface).
+# resource "netactuate_router_vrf_interface_wireguard_peer" "example" {
+#   vrf_id    = netactuate_router.example.default_vrf_id
+#   interface_id = netactuate_router_vrf_interface.example.id
+#   router_id = netactuate_router.example.id
+#   name = "Example Wireguard Peer"
+#   description = "Example Wireguard Peer Description"
+#   allowed_ips {
+#     network = "192.168.1.0/24"
+#   }
+# }
