@@ -224,9 +224,10 @@ func resourceRouterVRFInterfaceDelete(ctx context.Context, d *schema.ResourceDat
 
 	err = c.DeleteRouterVRFInterface(routerID, vrfID, interfaceID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
-
-	d.SetId("")
 	return nil
 }

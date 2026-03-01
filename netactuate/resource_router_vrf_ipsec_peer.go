@@ -212,6 +212,9 @@ func resourceRouterVRFIPSecPeerDelete(ctx context.Context, d *schema.ResourceDat
 
 	err = c.DeleteRouterVRFIPSecPeer(routerID, vrfID, peerID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

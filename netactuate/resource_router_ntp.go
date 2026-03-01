@@ -187,13 +187,11 @@ func resourceRouterNTPDelete(ctx context.Context, d *schema.ResourceData, m inte
 
 	_, err = c.GetRouter(routerID)
 	if err != nil {
-		d.SetId("")
 		return nil
 	}
 
 	ntpConfig, err := c.GetRouterNTPConfig(routerID)
 	if err != nil {
-		d.SetId("")
 		return nil
 	}
 
@@ -205,9 +203,11 @@ func resourceRouterNTPDelete(ctx context.Context, d *schema.ResourceData, m inte
 
 	_, err = c.UpdateRouterNTPConfig(routerID, updateRequest)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
-	d.SetId("")
 	return nil
 }

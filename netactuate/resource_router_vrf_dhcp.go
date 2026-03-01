@@ -338,9 +338,10 @@ func resourceRouterVRFDHCPDelete(ctx context.Context, d *schema.ResourceData, m 
 
 	_, err = c.UpdateRouterVRFDHCP(routerID, vrfID, &disableRequest)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
 		return diag.FromErr(err)
 	}
-
-	d.SetId("")
 	return nil
 }
