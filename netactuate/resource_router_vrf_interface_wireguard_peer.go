@@ -142,7 +142,7 @@ func resourceRouterVRFInterfaceWireguardPeerCreate(ctx context.Context, d *schem
 
 	if v, ok := d.GetOk("remote"); ok {
 		remote := v.(string)
-		createRequest.Description = &remote
+		createRequest.Remote = &remote
 	}
 
 	createResp, err := c.CreateRouterVRFInterfaceWireguardPeer(routerID, vrfID, interfaceID, createRequest)

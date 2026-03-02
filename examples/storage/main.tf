@@ -63,7 +63,7 @@ output "block_namespace_id" {
 }
 
 output "block_namespace_pool" {
-  value = netactuate_storage_block_namespace.example.ceph_pool
+  value = netactuate_storage_block_namespace.example.storage_pool
 }
 
 output "block_namespace_endpoints" {
@@ -82,7 +82,7 @@ output "block_volume_id" {
 }
 
 output "block_volume_image" {
-  value = netactuate_storage_block_volume.example.ceph_image_name
+  value = netactuate_storage_block_volume.example.image_name
 }
 
 output "block_volume_endpoints" {

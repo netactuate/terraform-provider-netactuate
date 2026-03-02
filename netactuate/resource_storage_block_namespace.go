@@ -96,20 +96,20 @@ func resourceStorageBlockNamespace() *schema.Resource {
 				Description: "Block storage endpoint URLs",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			"ceph_pool": {
+			"storage_pool": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph pool name",
+				Description: "The storage pool name",
 			},
-			"ceph_namespace": {
+			"storage_namespace": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph namespace",
+				Description: "The storage namespace",
 			},
-			"ceph_cluster_id": {
+			"storage_cluster_id": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph cluster ID",
+				Description: "The storage cluster ID",
 			},
 		},
 	}
@@ -183,9 +183,9 @@ func resourceStorageBlockNamespaceRead(ctx context.Context, d *schema.ResourceDa
 	setValue("total_capacity_gb", ns.Metadata.Capacity.TotalGB, d, &diags)
 	setValue("auto_scaling", ns.Metadata.Capacity.AutoScaling, d, &diags)
 	setValue("endpoints", ns.Credentials.Endpoints, d, &diags)
-	setValue("ceph_pool", ns.Credentials.Pool, d, &diags)
-	setValue("ceph_namespace", ns.Credentials.Namespace, d, &diags)
-	setValue("ceph_cluster_id", ns.Credentials.ClusterID, d, &diags)
+	setValue("storage_pool", ns.Credentials.Pool, d, &diags)
+	setValue("storage_namespace", ns.Credentials.Namespace, d, &diags)
+	setValue("storage_cluster_id", ns.Credentials.ClusterID, d, &diags)
 
 	return diags
 }

@@ -4,7 +4,6 @@ provider "netactuate" {
   api_url_v3 = "VAPI3_URL"
 }
 
-
 resource "netactuate_router" "example" {
   name = "Example Terraform Router"
   description = "Example Terraform Router Description"
@@ -15,15 +14,14 @@ resource "netactuate_router" "example" {
 }
 
 
-# The cloud router is in a magic mesh and only allows the default VRF configuration.
-#
+# Note: If the router is in a magic mesh, only the default VRF is allowed.
 # resource "netactuate_router_vrf" "example" {
 #   depends_on = [
 #     netactuate_router.example
 #   ]
 #   router_id = netactuate_router.example.id
-#   name = "Example Terraform Router VPF"
-#   description = "Example Terraform Router VPF Description"
+#   name = "Example Terraform Router VRF"
+#   description = "Example Terraform Router VRF Description"
 # }
 
 resource "netactuate_router_vrf_interface" "example" {
@@ -52,7 +50,7 @@ resource "netactuate_router_vrf_bgp" "example" {
 
 resource "netactuate_router_vrf_bgp_neighbor" "example" {
   depends_on = [
-    netactuate_router.example
+    netactuate_router_vrf_bgp.example
   ]
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
@@ -272,14 +270,31 @@ resource "netactuate_router_ntp" "example" {
   }
 }
 
-# Works only with the "wireguard" interface type (netactuate_router_vrf_interface).
-# resource "netactuate_router_vrf_interface_wireguard_peer" "example" {
-#   vrf_id    = netactuate_router.example.default_vrf_id
-#   interface_id = netactuate_router_vrf_interface.example.id
-#   router_id = netactuate_router.example.id
-#   name = "Example Wireguard Peer"
-#   description = "Example Wireguard Peer Description"
-#   allowed_ips {
-#     network = "192.168.1.0/24"
-#   }
-# }
+# Wireguard interface (required for wireguard peers)
+resource "netactuate_router_vrf_interface" "wireguard" {
+  depends_on = [
+    netactuate_router.example
+  ]
+  router_id = netactuate_router.example.id
+  vrf_id    = netactuate_router.example.default_vrf_id
+  type           = "wireguard"
+  name           = "Example Wireguard Interface"
+  description    = "Example Wireguard Interface Description"
+  ipv4_cidr      = "10.0.0.1/24"
+  wireguard_port = 51821
+}
+
+# Works only with the "wireguard" interface type.
+resource "netactuate_router_vrf_interface_wireguard_peer" "example" {
+  depends_on = [
+    netactuate_router_vrf_interface.wireguard
+  ]
+  router_id    = netactuate_router.example.id
+  vrf_id       = netactuate_router.example.default_vrf_id
+  interface_id = netactuate_router_vrf_interface.wireguard.interface_id
+  name         = "Example Wireguard Peer"
+  description  = "Example Wireguard Peer Description"
+  allowed_ips {
+    network = "192.168.1.0/24"
+  }
+}

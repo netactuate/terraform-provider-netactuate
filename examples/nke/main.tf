@@ -28,11 +28,10 @@ resource "netactuate_nke_cluster" "example" {
   # Control plane options (require recreation if changed)
   high_availability    = false
   kubernetes_dashboard = true
+  do_dual_stack        = false
 
   # Location: use name or location_id = <int>
   location = "DEVRDU - Raleigh, NC"
-
-  pool_id = 1
 
   # Plan/package name (same as plan in netactuate_server)
   plan = "VR2x2x25"

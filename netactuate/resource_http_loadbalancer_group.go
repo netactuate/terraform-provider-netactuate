@@ -371,9 +371,9 @@ func expandHTTPLBRules(raw []interface{}) []gona.HTTPLBGroupRule {
 				Path:   rule["match_path"].(string),
 			},
 			SSL: gona.HTTPLBGroupRuleSSL{
-				Enabled: rule["ssl_enabled"].(bool),
+				Enabled:              rule["ssl_enabled"].(bool),
+				HTTPSRedirectEnabled: rule["https_redirect_enabled"].(bool),
 			},
-			HTTPSRedirectEnabled: rule["https_redirect_enabled"].(bool),
 		}
 		if v, ok := rule["ssl_certificate_id"]; ok && v.(int) > 0 {
 			certID := v.(int)
@@ -411,7 +411,7 @@ func flattenHTTPLBRules(rules []gona.HTTPLBGroupRule) []map[string]interface{} {
 			"match_path":            r.Match.Path,
 			"ssl_enabled":           r.SSL.Enabled,
 			"ssl_certificate_id":    certID,
-			"https_redirect_enabled": r.HTTPSRedirectEnabled,
+			"https_redirect_enabled": r.SSL.HTTPSRedirectEnabled,
 		}
 	}
 	return result

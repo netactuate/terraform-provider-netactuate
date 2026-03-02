@@ -77,6 +77,13 @@ func resourceNKECluster() *schema.Resource {
 				ForceNew:    true,
 				Description: "Install the Kubernetes dashboard addon (requires recreation)",
 			},
+			"do_dual_stack": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				ForceNew:    true,
+				Description: "Enable dual-stack IPv4+IPv6 support (can only be set at creation, requires recreation to change)",
+			},
 			// Location: accept name or ID
 			"location": {
 				Type:         schema.TypeString,
@@ -104,12 +111,7 @@ func resourceNKECluster() *schema.Resource {
 				Computed:    true,
 				Description: "The resolved plan/package ID (populated after apply)",
 			},
-			"pool_id": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "Compute pool ID to assign the cluster to",
-			},
-			"contract_id": {
+"contract_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				ForceNew:    true,
@@ -185,12 +187,9 @@ func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m int
 		MinimumNodes:     d.Get("minimum_nodes").(int),
 		MaximumNodes:     d.Get("maximum_nodes").(int),
 		DoAutoscaling:    d.Get("do_autoscaling").(bool),
+		DoDualStack:      d.Get("do_dual_stack").(bool),
 		HighAvailability: d.Get("high_availability").(bool),
 		Billing:          billing,
-	}
-
-	if poolID := d.Get("pool_id").(int); poolID != 0 {
-		req.Pool = &gona.NKEPool{ID: poolID}
 	}
 
 	if d.Get("kubernetes_dashboard").(bool) {
@@ -289,12 +288,6 @@ func resourceNKEClusterUpdate(ctx context.Context, d *schema.ResourceData, m int
 			return diag.Diagnostics{*pkgDiag}
 		}
 		req.Billing = &gona.NKEUpdateBilling{PackageID: pkgID}
-		changed = true
-	}
-	if d.HasChange("pool_id") {
-		if v := d.Get("pool_id").(int); v != 0 {
-			req.Pool = &gona.NKEPool{ID: v}
-		}
 		changed = true
 	}
 	if d.HasChange("minimum_nodes") || d.HasChange("maximum_nodes") {

@@ -84,25 +84,25 @@ func resourceStorageBlockVolume() *schema.Resource {
 				Description: "Block storage endpoint URLs",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			"ceph_pool": {
+			"storage_pool": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph pool name",
+				Description: "The storage pool name",
 			},
-			"ceph_namespace": {
+			"storage_namespace": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph namespace",
+				Description: "The storage namespace",
 			},
-			"ceph_cluster_id": {
+			"storage_cluster_id": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph cluster ID",
+				Description: "The storage cluster ID",
 			},
-			"ceph_image_name": {
+			"image_name": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The Ceph RBD image name",
+				Description: "The block storage image name",
 			},
 		},
 	}
@@ -172,10 +172,10 @@ func resourceStorageBlockVolumeRead(ctx context.Context, d *schema.ResourceData,
 	}
 	setValue("total_capacity_gb", vol.Metadata.Capacity.TotalGB, d, &diags)
 	setValue("endpoints", vol.Credentials.Endpoints, d, &diags)
-	setValue("ceph_pool", vol.Credentials.Pool, d, &diags)
-	setValue("ceph_namespace", vol.Credentials.Namespace, d, &diags)
-	setValue("ceph_cluster_id", vol.Credentials.ClusterID, d, &diags)
-	setValue("ceph_image_name", vol.Credentials.ImageName, d, &diags)
+	setValue("storage_pool", vol.Credentials.Pool, d, &diags)
+	setValue("storage_namespace", vol.Credentials.Namespace, d, &diags)
+	setValue("storage_cluster_id", vol.Credentials.ClusterID, d, &diags)
+	setValue("image_name", vol.Credentials.ImageName, d, &diags)
 
 	return diags
 }
