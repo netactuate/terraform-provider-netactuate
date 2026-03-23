@@ -86,12 +86,13 @@ func resourceNKECluster() *schema.Resource {
 			},
 			// Location: accept name or ID
 			"location": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"location", "location_id"},
-				Description:  "Location name where the cluster will be deployed (e.g. \"DEVRDU - Raleigh, NC\")",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"location", "location_id"},
+				DiffSuppressFunc: suppressLocationDiff,
+				Description:      "Location name where the cluster will be deployed (e.g. \"DEVRDU - Raleigh, NC\")",
 			},
 			"location_id": {
 				Type:         schema.TypeInt,
@@ -100,6 +101,11 @@ func resourceNKECluster() *schema.Resource {
 				ForceNew:     true,
 				ExactlyOneOf: []string{"location", "location_id"},
 				Description:  "Location ID where the cluster will be deployed",
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					// Suppress location_id drift when location (name) is set in config
+					_, hasLocation := d.GetOk("location")
+					return hasLocation && new == "0"
+				},
 			},
 			"plan": {
 				Type:        schema.TypeString,
@@ -248,7 +254,7 @@ func resourceNKEClusterRead(ctx context.Context, d *schema.ResourceData, m inter
 	setValue("do_autoscaling", cluster.DoAutoscaling != 0, d, &diags)
 
 	setValue("location_id", cluster.Location.ID, d, &diags)
-	setValue("location", cluster.Location.Name, d, &diags)
+	setLocationPreserveFormat(cluster.Location.Name, d, &diags)
 	setValue("plan", cluster.Package.Name, d, &diags)
 	setValue("package_id", cluster.Package.ID, d, &diags)
 

@@ -56,14 +56,20 @@ func resourceVPC() *schema.Resource {
 				ForceNew:     true,
 				ExactlyOneOf: []string{"location_id", "location"},
 				Description:  "The location ID to deploy the VPC into",
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					// Suppress location_id drift when location (name) is set in config
+					_, hasLocation := d.GetOk("location")
+					return hasLocation && new == "0"
+				},
 			},
 			"location": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"location_id", "location"},
-				Description:  "The location name to deploy the VPC",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"location_id", "location"},
+				DiffSuppressFunc: suppressLocationDiff,
+				Description:      "The location name to deploy the VPC",
 			},
 			"network_ipv4": {
 				Type:        schema.TypeString,
@@ -282,7 +288,7 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	setValue("label", vpc.Metadata.Label, d, &diags)
 	setValue("description", vpc.Metadata.Description, d, &diags)
 	setValue("location_id", vpc.Location.ID, d, &diags)
-	setValue("location", vpc.Location.Name, d, &diags)
+	setLocationPreserveFormat(vpc.Location.Name, d, &diags)
 
 	if vpc.Firewalls != nil {
 		if vpc.Firewalls.IPv4 != nil {
