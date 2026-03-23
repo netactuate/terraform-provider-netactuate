@@ -8,6 +8,35 @@ import (
 	"github.com/netactuate/gona/gona"
 )
 
+func locationIATA(location string) string {
+	parts := strings.Fields(location)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.ToUpper(parts[0])
+}
+
+func sameLocation(a, b string) bool {
+	ia, ib := locationIATA(a), locationIATA(b)
+	return ia != "" && ib != "" && ia == ib
+}
+
+func setLocationPreserveFormat(apiLocation string, d *schema.ResourceData, diags *diag.Diagnostics) {
+	current := d.Get("location").(string)
+	if current != "" && sameLocation(current, apiLocation) {
+		// same location — keep the user's format in state
+		return
+	}
+	setValue("location", apiLocation, d, diags)
+}
+
+func suppressLocationDiff(k, old, new string, d *schema.ResourceData) bool {
+	if new == "" {
+		return true
+	}
+	return sameLocation(old, new)
+}
+
 func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
 	err := d.Set(key, value)
 	if err != nil {

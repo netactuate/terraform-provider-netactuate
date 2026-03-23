@@ -106,12 +106,7 @@ func resourceServer() *schema.Resource {
 				StateFunc: func(val any) string {
 					return strings.ToUpper(val.(string))
 				},
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					if new == "" || strings.EqualFold(strings.ToUpper(old), strings.Fields(new)[0]) {
-						return true
-					}
-					return false
-				},
+				DiffSuppressFunc: suppressLocationDiff,
 			},
 			"location_id": {
 				Type:         schema.TypeInt,
@@ -317,12 +312,12 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	setValue("plan", server.Package, d, &diags)
 	updateValue("location_id", server.LocationID, d, &diags)
-	updateValue("location", strings.Fields(server.Location)[0], d, &diags)
+	setLocationPreserveFormat(server.Location, d, &diags)
 
 	_, exists_location_id := d.GetOk("location_id")
 	_, exists_location := d.GetOk("location")
 	if !exists_location_id && !exists_location {
-		setValue("location", strings.Fields(server.Location)[0], d, &diags)
+		setValue("location", server.Location, d, &diags)
 	}
 
 	_, exists_image_id := d.GetOk("image_id")
