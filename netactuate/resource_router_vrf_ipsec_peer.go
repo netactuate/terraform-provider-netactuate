@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -15,6 +16,18 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 		ReadContext:   resourceRouterVRFIPSecPeerRead,
 		UpdateContext: resourceRouterVRFIPSecPeerUpdate,
 		DeleteContext: resourceRouterVRFIPSecPeerDelete,
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+			doInitiate := diff.Get("do_initiate_connection").(bool)
+			_, hasPeerAddr := diff.GetOk("peer_address")
+
+			if !doInitiate && hasPeerAddr {
+				return fmt.Errorf("peer_address cannot be set when do_initiate_connection is false (passive mode accepts connections from any address)")
+			}
+			if doInitiate && !hasPeerAddr {
+				return fmt.Errorf("peer_address is required when do_initiate_connection is true (initiating mode)")
+			}
+			return nil
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -62,8 +75,8 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 			},
 			"peer_address": {
 				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Remote router IPv4 address.",
+				Optional:    true,
+				Description: "Remote router IPv4 address. Required when do_initiate_connection is true. Cannot be set in passive mode (do_initiate_connection = false).",
 			},
 			"overlay_ipv4": {
 				Type:        schema.TypeString,
@@ -93,7 +106,10 @@ func buildIPSecPeerRequest(d *schema.ResourceData) gona.CreateRouterVRFIPSecPeer
 		RemoteID:             d.Get("remote_id").(string),
 		PSKSecret:            d.Get("psk_secret").(string),
 		DoInitiateConnection: d.Get("do_initiate_connection").(bool),
-		PeerAddress:          d.Get("peer_address").(string),
+	}
+
+	if v, ok := d.GetOk("peer_address"); ok {
+		req.PeerAddress = v.(string)
 	}
 
 	if v, ok := d.GetOk("description"); ok {
