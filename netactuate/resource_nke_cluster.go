@@ -2,11 +2,13 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
 )
@@ -24,6 +26,19 @@ func resourceNKECluster() *schema.Resource {
 			Create: schema.DefaultTimeout(15 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
+		CustomizeDiff: customdiff.All(
+			func(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
+				if !d.HasChange("version") && d.Id() != "" {
+					return nil
+				}
+				version := d.Get("version").(string)
+				c := m.(*ProviderClients).V3
+				if diags := validateNKEVersion(version, c); diags.HasError() {
+					return fmt.Errorf("%s", diags[0].Summary)
+				}
+				return nil
+			},
+		),
 		Schema: map[string]*schema.Schema{
 			"cluster_id": {
 				Type:        schema.TypeInt,
@@ -38,7 +53,7 @@ func resourceNKECluster() *schema.Resource {
 			"version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The Kubernetes version.",
+				Description: "The Kubernetes version. Use data.netactuate_nke_versions to list available versions.",
 			},
 			"replicas": {
 				Type:        schema.TypeInt,
@@ -164,9 +179,26 @@ func resourceNKECluster() *schema.Resource {
 	}
 }
 
+func validateNKEVersion(version string, c *gona.V3Client) diag.Diagnostics {
+	versions, err := c.ListNKEVersions()
+	if err != nil {
+		return diag.Errorf("failed to fetch available NKE versions: %s", err)
+	}
+	for _, v := range versions {
+		if v == version {
+			return nil
+		}
+	}
+	return diag.Errorf("invalid kubernetes version %q, available versions: %v", version, versions)
+}
+
 func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	v2 := m.(*ProviderClients).V2
 	c := m.(*ProviderClients).V3
+
+	if diags := validateNKEVersion(d.Get("version").(string), c); diags.HasError() {
+		return diags
+	}
 
 	locationID, locDiag := getLocationID(d, v2)
 	if locDiag != nil {
@@ -285,7 +317,11 @@ func resourceNKEClusterUpdate(ctx context.Context, d *schema.ResourceData, m int
 		changed = true
 	}
 	if d.HasChange("version") {
-		req.Version = d.Get("version").(string)
+		newVersion := d.Get("version").(string)
+		if diags := validateNKEVersion(newVersion, c); diags.HasError() {
+			return diags
+		}
+		req.Version = newVersion
 		changed = true
 	}
 	if d.HasChange("plan") {
