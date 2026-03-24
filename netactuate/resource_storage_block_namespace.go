@@ -170,7 +170,7 @@ func resourceStorageBlockNamespaceRead(ctx context.Context, d *schema.ResourceDa
 
 	var diags diag.Diagnostics
 
-	setValue("block_namespace_id", ns.Metadata.BlockNamespaceID, d, &diags)
+	setValue("block_namespace_id", id, d, &diags)
 	setValue("label", ns.Metadata.Label, d, &diags)
 	setValue("ready", ns.Metadata.Ready, d, &diags)
 	setValue("assigned_on", ns.Metadata.AssignedOn, d, &diags)
