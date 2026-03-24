@@ -82,11 +82,13 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Overlay tunnel IPv4 CIDR.",
+				AtLeastOneOf: []string{"overlay_ipv4", "overlay_ipv6"},
 			},
 			"overlay_ipv6": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Overlay tunnel IPv6 CIDR.",
+				AtLeastOneOf: []string{"overlay_ipv4", "overlay_ipv6"},
 			},
 			"local_id": {
 				Type:        schema.TypeString,
