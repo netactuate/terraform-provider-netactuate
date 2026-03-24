@@ -50,6 +50,7 @@ func resourceRouterVRFInterfaceWireguardPeer() *schema.Resource {
 				Optional:    true,
 				ForceNew:    true,
 				Description: "The remote address of the wireguard interface.",
+				RequiredWith: []string{"public_key"},
 			},
 			"wireguard_peer_id": {
 				Type:        schema.TypeInt,
