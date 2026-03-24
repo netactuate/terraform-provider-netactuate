@@ -155,7 +155,13 @@ func resourceVPCGatewayFirewallRuleRead(ctx context.Context, d *schema.ResourceD
 	setValue("direction", rule.Direction, d, &diags)
 	setValue("protocol", rule.Protocol, d, &diags)
 	setValue("description", rule.Description, d, &diags)
-	setValue("network", rule.Network, d, &diags)
+	// Don't store default network value to avoid drifting
+	isDefault := rule.Network == "0.0.0.0/0" || rule.Network == "::/0"
+	currentNetwork, _ := d.GetOk("network")
+	hasNetworkInState := currentNetwork != nil && currentNetwork.(string) != ""
+	if !isDefault || hasNetworkInState {
+		setValue("network", rule.Network, d, &diags)
+	}
 
 	if rule.Port != nil {
 		setValue("port_start", rule.Port.Start, d, &diags)
