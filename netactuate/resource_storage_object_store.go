@@ -175,7 +175,7 @@ func resourceStorageObjectStoreRead(ctx context.Context, d *schema.ResourceData,
 
 	var diags diag.Diagnostics
 
-	setValue("object_store_id", store.Metadata.ObjectStoreID, d, &diags)
+	setValue("object_store_id", id, d, &diags)
 	setValue("label", store.Metadata.Label, d, &diags)
 	setValue("ready", store.Metadata.Ready, d, &diags)
 	setValue("assigned_on", store.Metadata.AssignedOn, d, &diags)

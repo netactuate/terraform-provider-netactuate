@@ -160,7 +160,7 @@ func resourceStorageBlockVolumeRead(ctx context.Context, d *schema.ResourceData,
 
 	var diags diag.Diagnostics
 
-	setValue("block_volume_id", vol.Metadata.BlockVolumeID, d, &diags)
+	setValue("block_volume_id", id, d, &diags)
 	setValue("label", vol.Metadata.Label, d, &diags)
 	setValue("ready", vol.Metadata.Ready, d, &diags)
 	setValue("assigned_on", vol.Metadata.AssignedOn, d, &diags)

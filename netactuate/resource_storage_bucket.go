@@ -184,7 +184,7 @@ func resourceStorageBucketRead(ctx context.Context, d *schema.ResourceData, m in
 
 	var diags diag.Diagnostics
 
-	setValue("bucket_id", bucket.Metadata.BucketID, d, &diags)
+	setValue("bucket_id", id, d, &diags)
 	setValue("label", bucket.Metadata.Label, d, &diags)
 	setValue("ready", bucket.Metadata.Ready, d, &diags)
 	setValue("private", bucket.Metadata.Private, d, &diags)
