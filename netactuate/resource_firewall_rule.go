@@ -357,8 +357,9 @@ func resourceFirewallRuleUpdate(ctx context.Context, d *schema.ResourceData, m i
 	unlock := lockFirewallSet(setID)
 	defer unlock()
 
-	//Get the current rule's priority for finding it on the draft
-	currentPriority := d.Get("rule_priority").(int)
+	//Get the OLD priority for finding the rule on the draft (draft has old priorities)
+	oldPriority, _ := d.GetChange("rule_priority")
+	currentPriority := oldPriority.(int)
 
 	//Create draft
 	draftID, err := getOrCreateDraft(c, setID)
