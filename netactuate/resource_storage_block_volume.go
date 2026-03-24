@@ -30,12 +30,13 @@ func resourceStorageBlockVolume() *schema.Resource {
 				Description: "The display label for the block volume",
 			},
 			"location": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"location", "location_id"},
-				Description:  "Location name where the block volume will be created",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"location", "location_id"},
+				DiffSuppressFunc: suppressStorageLocationDiff,
+				Description:      "Location name where the block volume will be created",
 			},
 			"location_id": {
 				Type:         schema.TypeInt,
@@ -110,8 +111,9 @@ func resourceStorageBlockVolume() *schema.Resource {
 
 func resourceStorageBlockVolumeCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
+	v2 := m.(*ProviderClients).V2
 
-	locationID, locDiag := getStorageLocationID(d, c)
+	locationID, locDiag := getStorageLocationID(d, c, v2)
 	if locDiag != nil {
 		return diag.Diagnostics{*locDiag}
 	}
@@ -165,7 +167,10 @@ func resourceStorageBlockVolumeRead(ctx context.Context, d *schema.ResourceData,
 	setValue("ready", vol.Metadata.Ready, d, &diags)
 	setValue("assigned_on", vol.Metadata.AssignedOn, d, &diags)
 	setValue("location_id", vol.Metadata.Location.ID, d, &diags)
-	setValue("location", vol.Metadata.Location.Name, d, &diags)
+	// Preserve the user's location format (e.g. IATA code) if it resolves to the same location
+	if current := d.Get("location").(string); current == "" {
+		setValue("location", vol.Metadata.Location.Name, d, &diags)
+	}
 	setValue("location_name", vol.Metadata.Location.Name, d, &diags)
 	if vol.Metadata.Capacity.RequestedGB != nil {
 		setValue("capacity", *vol.Metadata.Capacity.RequestedGB, d, &diags)

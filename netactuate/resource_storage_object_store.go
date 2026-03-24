@@ -30,12 +30,13 @@ func resourceStorageObjectStore() *schema.Resource {
 				Description: "The display label for the object store",
 			},
 			"location": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"location", "location_id"},
-				Description:  "Location name where the object store will be created",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"location", "location_id"},
+				DiffSuppressFunc: suppressStorageLocationDiff,
+				Description:      "Location name where the object store will be created",
 			},
 			"location_id": {
 				Type:         schema.TypeInt,
@@ -122,8 +123,9 @@ func resourceStorageObjectStore() *schema.Resource {
 
 func resourceStorageObjectStoreCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
+	v2 := m.(*ProviderClients).V2
 
-	locationID, locDiag := getStorageLocationID(d, c)
+	locationID, locDiag := getStorageLocationID(d, c, v2)
 	if locDiag != nil {
 		return diag.Diagnostics{*locDiag}
 	}
@@ -180,7 +182,9 @@ func resourceStorageObjectStoreRead(ctx context.Context, d *schema.ResourceData,
 	setValue("ready", store.Metadata.Ready, d, &diags)
 	setValue("assigned_on", store.Metadata.AssignedOn, d, &diags)
 	setValue("location_id", store.Metadata.Location.ID, d, &diags)
-	setValue("location", store.Metadata.Location.Name, d, &diags)
+	if current := d.Get("location").(string); current == "" {
+		setValue("location", store.Metadata.Location.Name, d, &diags)
+	}
 	setValue("location_name", store.Metadata.Location.Name, d, &diags)
 	if store.Metadata.Capacity.RequestedGB != nil {
 		setValue("capacity", *store.Metadata.Capacity.RequestedGB, d, &diags)

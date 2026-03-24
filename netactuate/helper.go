@@ -37,6 +37,22 @@ func suppressLocationDiff(k, old, new string, d *schema.ResourceData) bool {
 	return sameLocation(old, new)
 }
 
+func suppressStorageLocationDiff(k, old, new string, d *schema.ResourceData) bool {
+	if new == "" {
+		return true
+	}
+	if sameLocation(old, new) {
+		return true
+	}
+	if d.Id() != "" {
+		oldID, newID := d.GetChange("location_id")
+		if oldID.(int) != 0 && oldID == newID {
+			return true
+		}
+	}
+	return false
+}
+
 func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
 	err := d.Set(key, value)
 	if err != nil {
@@ -81,7 +97,7 @@ func getLocationID(d *schema.ResourceData, c *gona.Client) (int, *diag.Diagnosti
 	return 0, &diag.Errorf("location %q not found", locationName)[0]
 }
 
-func getStorageLocationID(d *schema.ResourceData, c *gona.V3Client) (int, *diag.Diagnostic) {
+func getStorageLocationID(d *schema.ResourceData, c *gona.V3Client, v2 *gona.Client) (int, *diag.Diagnostic) {
 	if v, ok := d.GetOk("location_id"); ok {
 		return v.(int), nil
 	}
@@ -99,6 +115,21 @@ func getStorageLocationID(d *schema.ResourceData, c *gona.V3Client) (int, *diag.
 	for _, loc := range locations {
 		if strings.EqualFold(loc.Location.Name, locationName) {
 			return loc.Location.ID, nil
+		}
+	}
+
+	if v2 != nil {
+		v2Locations, err := v2.GetLocations()
+		if err == nil {
+			for _, v2Loc := range v2Locations {
+				if strings.EqualFold(v2Loc.IATACode, locationName) {
+					for _, loc := range locations {
+						if strings.EqualFold(loc.Location.Name, v2Loc.Name) {
+							return loc.Location.ID, nil
+						}
+					}
+				}
+			}
 		}
 	}
 
