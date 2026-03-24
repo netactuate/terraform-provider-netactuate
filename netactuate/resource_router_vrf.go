@@ -15,6 +15,15 @@ func resourceRouterVRF() *schema.Resource {
 		ReadContext:   resourceRouterVRFRead,
 		UpdateContext: resourceRouterVRFUpdate,
 		DeleteContext: resourceRouterVRFDelete,
+		Description:   "Manages an additional VRF on a cloud router. Routers enrolled in netactuate_magic_mesh_router can only use the default VRF and cannot have additional VRFs.",
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+			if !diff.NewValueKnown("router_id") {
+				return nil
+			}
+			routerID := diff.Get("router_id").(int)
+			c := meta.(*ProviderClients).V3
+			return ensureRouterNotInMagicMesh(c, routerID)
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -53,6 +62,10 @@ func resourceRouterVRFCreate(ctx context.Context, d *schema.ResourceData, m inte
 
 	unlock := lockRouter(routerID)
 	defer unlock()
+
+	if err := ensureRouterNotInMagicMesh(c, routerID); err != nil {
+		return diag.FromErr(err)
+	}
 
 	createRequest := gona.CreateRouterVRFRequest{
 		Name:        &name,

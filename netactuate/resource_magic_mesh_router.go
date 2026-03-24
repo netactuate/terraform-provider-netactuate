@@ -17,6 +17,15 @@ func resourceMagicMeshRouter() *schema.Resource {
 		CreateContext: resourceMagicMeshRouterCreate,
 		ReadContext:   resourceMagicMeshRouterRead,
 		DeleteContext: resourceMagicMeshRouterDelete,
+		Description:   "Adds a cloud router to a magic mesh. Routers in magic mesh can only use the default VRF, so they cannot be managed with netactuate_router_vrf additional VRFs.",
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+			if !diff.NewValueKnown("router_id") {
+				return nil
+			}
+			routerID := diff.Get("router_id").(int)
+			c := meta.(*ProviderClients).V3
+			return ensureRouterHasOnlyDefaultVRF(c, routerID)
+		},
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceMagicMeshRouterImport,
 		},
@@ -42,6 +51,13 @@ func resourceMagicMeshRouterCreate(ctx context.Context, d *schema.ResourceData, 
 
 	meshID := d.Get("mesh_id").(int)
 	routerID := d.Get("router_id").(int)
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
+	if err := ensureRouterHasOnlyDefaultVRF(c, routerID); err != nil {
+		return diag.FromErr(err)
+	}
 
 	req := &gona.AddMeshRouterRequest{
 		RouterID: routerID,
@@ -96,6 +112,10 @@ func resourceMagicMeshRouterDelete(ctx context.Context, d *schema.ResourceData, 
 	c := m.(*ProviderClients).V3
 
 	meshID, routerID, err := parseMeshRouterID(d.Id())
+
+	unlock := lockRouter(routerID)
+	defer unlock()
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
