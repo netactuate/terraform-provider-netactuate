@@ -104,6 +104,20 @@ func resourceRouterVRFSNATRule() *schema.Resource {
 				Description:   "Place this rule after the given SNAT rule ID",
 			},
 		},
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+			protocol := diff.Get("protocol").(string)
+			_, hasMatchPortStart := diff.GetOk("match_port_start")
+			_, hasMatchPortEnd := diff.GetOk("match_port_end")
+			_, hasTranslationPortStart := diff.GetOk("translation_port_start")
+			_, hasTranslationPortEnd := diff.GetOk("translation_port_end")
+
+			if protocol == "TCP" && (hasMatchPortStart || hasMatchPortEnd) {
+				if !hasTranslationPortStart || !hasTranslationPortEnd {
+					return fmt.Errorf("translation_port_start and translation_port_end are required when protocol is TCP and match_port_start or match_port_end is set")
+				}
+			}
+			return nil
+		},
 	}
 }
 
