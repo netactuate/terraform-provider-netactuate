@@ -26,7 +26,6 @@ resource "netactuate_nke_cluster" "example" {
   do_autoscaling = false
 
   # Control plane options (require recreation if changed)
-  high_availability    = false
   kubernetes_dashboard = true
   do_dual_stack        = false
 
