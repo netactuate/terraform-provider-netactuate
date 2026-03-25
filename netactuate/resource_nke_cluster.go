@@ -130,11 +130,11 @@ func resourceNKECluster() *schema.Resource {
 				Computed:    true,
 				Description: "The resolved plan/package ID (populated after apply)",
 			},
-"contract_id": {
+		"contract_id": {
 				Type:        schema.TypeInt,
-				Optional:    true,
+				Required:    true,
 				ForceNew:    true,
-				Description: "Billing contract ID (required for some accounts, requires recreation to change)",
+				Description: "NKE billing contract ID. This is distinct from the server resource's package_billing_contract_id. Must be a usage-type contract.",
 			},
 			"tag_ids": {
 				Type:        schema.TypeSet,
@@ -208,12 +208,11 @@ func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Diagnostics{*pkgDiag}
 	}
 
+	contractID := d.Get("contract_id").(int)
 	billing := gona.NKEBilling{
 		PackageID:  packageID,
 		LocationID: locationID,
-	}
-	if contractID := d.Get("contract_id").(int); contractID != 0 {
-		billing.ContractID = &contractID
+		ContractID: &contractID,
 	}
 
 	req := &gona.CreateNKEClusterRequest{
