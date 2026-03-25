@@ -80,10 +80,8 @@ func resourceNKECluster() *schema.Resource {
 			},
 			"high_availability": {
 				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				ForceNew:    true,
-				Description: "Enable high availability for the control plane (requires recreation)",
+				Computed:    true,
+				Description: "Whether the control plane has high availability (true when replicas > 1)",
 			},
 			"kubernetes_dashboard": {
 				Type:        schema.TypeBool,
@@ -224,10 +222,9 @@ func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m int
 		Replicas:         d.Get("replicas").(int),
 		MinimumNodes:     d.Get("minimum_nodes").(int),
 		MaximumNodes:     d.Get("maximum_nodes").(int),
-		DoAutoscaling:    d.Get("do_autoscaling").(bool),
-		DoDualStack:      d.Get("do_dual_stack").(bool),
-		HighAvailability: d.Get("high_availability").(bool),
-		Billing:          billing,
+		DoAutoscaling: d.Get("do_autoscaling").(bool),
+		DoDualStack:   d.Get("do_dual_stack").(bool),
+		Billing:       billing,
 	}
 
 	if d.Get("kubernetes_dashboard").(bool) {
@@ -296,6 +293,13 @@ func resourceNKEClusterRead(ctx context.Context, d *schema.ResourceData, m inter
 	setValue("kubernetes_dashboard_url", cluster.URLs.KubernetesDashboard, d, &diags)
 	setValue("pod_network", cluster.Networks.Pod, d, &diags)
 	setValue("service_network", cluster.Networks.Service, d, &diags)
+
+	setValue("high_availability", cluster.HasHighAvailability, d, &diags)
+	setValue("kubernetes_dashboard", cluster.KubernetesDashboard.Requested, d, &diags)
+	setValue("do_dual_stack", cluster.IsDualStack, d, &diags)
+	if cluster.ContractID != 0 {
+		setValue("contract_id", cluster.ContractID, d, &diags)
+	}
 
 	return diags
 }
