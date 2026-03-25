@@ -17,6 +17,28 @@ func resourceRouterVRFDNATRule() *schema.Resource {
 		ReadContext:   resourceRouterVRFDNATRuleRead,
 		UpdateContext: resourceRouterVRFDNATRuleUpdate,
 		DeleteContext: resourceRouterVRFDNATRuleDelete,
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
+            matchPortStart, hasMatchStart := diff.GetOk("match_port_start")
+            matchPortEnd, hasMatchEnd := diff.GetOk("match_port_end")
+            if hasMatchStart && hasMatchEnd {
+                startVal := matchPortStart.(int)
+                endVal := matchPortEnd.(int)
+                if startVal == endVal {
+                    return fmt.Errorf("match_port_start and match_port_end have the same value (%d). For a single port, only set match_port_start and omit match_port_end", startVal)
+                }
+            }
+
+            translationPortStart, hasTranslationStart := diff.GetOk("translation_port_start")
+            translationPortEnd, hasTranslationEnd := diff.GetOk("translation_port_end")
+            if hasTranslationStart && hasTranslationEnd {
+                startVal := translationPortStart.(int)
+                endVal := translationPortEnd.(int)
+                if startVal == endVal {
+                    return fmt.Errorf("translation_port_start and translation_port_end have the same value (%d). For a single port, only set translation_port_start and omit translation_port_end", startVal)
+                }
+            }
+            return nil
+        },
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
