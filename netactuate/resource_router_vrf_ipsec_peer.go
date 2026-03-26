@@ -3,6 +3,7 @@ package netactuate
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -79,9 +80,10 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 				Description: "Remote router IPv4 address. Required when do_initiate_connection is true. Cannot be set in passive mode (do_initiate_connection = false).",
 			},
 			"overlay_ipv4": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Overlay tunnel IPv4 CIDR.",
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateIPSecPeerOverlayIPv4CIDR,
+				Description:  "Overlay tunnel IPv4 CIDR.",
 				AtLeastOneOf: []string{"overlay_ipv4", "overlay_ipv6"},
 			},
 			"overlay_ipv6": {
@@ -100,6 +102,17 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
+}
+
+func validateIPSecPeerOverlayIPv4CIDR(v interface{}, k string) (ws []string, es []error) {
+	value := v.(string)
+
+	ip, _, err := net.ParseCIDR(value)
+	if err != nil || ip.To4() == nil {
+		es = append(es, fmt.Errorf("%s must be a valid IPv4 CIDR", k))
+		return ws, es
+	}
+	return ws, es
 }
 
 func buildIPSecPeerRequest(d *schema.ResourceData) gona.CreateRouterVRFIPSecPeerRequest {
