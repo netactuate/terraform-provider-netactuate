@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -83,7 +84,7 @@ func resourceRouterVRFTunnel() *schema.Resource {
 			},
 		},
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceRouterVRFTunnelImport,
 		},
 		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
 			ipv4CIDR := d.Get("ipv4_cidr").(string)
@@ -140,7 +141,7 @@ func resourceRouterVRFTunnelCreate(ctx context.Context, d *schema.ResourceData, 
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(tunnel.TunnelID))
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, tunnel.TunnelID))
 
 	return resourceRouterVRFTunnelRead(ctx, d, m)
 }
@@ -148,9 +149,7 @@ func resourceRouterVRFTunnelCreate(ctx context.Context, d *schema.ResourceData, 
 func resourceRouterVRFTunnelRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	tunnelID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, tunnelID, err := parseRouterVRFTunnelImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -182,7 +181,7 @@ func resourceRouterVRFTunnelRead(ctx context.Context, d *schema.ResourceData, m 
 	setValue("ip_version", tunnel.IPVersion, d, &diags)
 	setValue("endpoint_address_remote", tunnel.EndpointAddress.Remote, d, &diags)
 	setValue("endpoint_address_source", tunnel.EndpointAddress.Source, d, &diags)
-
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, tunnel.TunnelID))
 
 	return diags
 }
@@ -190,16 +189,13 @@ func resourceRouterVRFTunnelRead(ctx context.Context, d *schema.ResourceData, m 
 func resourceRouterVRFTunnelUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	tunnelID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, tunnelID, err := parseRouterVRFTunnelImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	ipKey := d.Get("ip_key").(int)
 	name := d.Get("name").(string)
@@ -241,16 +237,13 @@ func resourceRouterVRFTunnelUpdate(ctx context.Context, d *schema.ResourceData, 
 func resourceRouterVRFTunnelDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	tunnelID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, tunnelID, err := parseRouterVRFTunnelImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterVRFTunnel(routerID, vrfID, tunnelID)
 	if err != nil {
@@ -260,4 +253,41 @@ func resourceRouterVRFTunnelDelete(ctx context.Context, d *schema.ResourceData, 
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceRouterVRFTunnelImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, tunnelID, err := parseRouterVRFTunnelImportID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, tunnelID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFTunnelImportID(id string) (int, int, int, error) {
+	parts := strings.SplitN(id, "/", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("invalid tunnel ID %q, expected \"routerId/vrfId/tunnelId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	tunnelID, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid tunnel_id %q: %w", parts[2], err)
+	}
+
+	return routerID, vrfID, tunnelID, nil
 }
