@@ -52,9 +52,9 @@ func resourceRouterPrefixList() *schema.Resource {
 				Description: "A description for the prefix list.",
 			},
 			"rule": {
-				Type:        schema.TypeList,
+				Type:        schema.TypeSet,
 				Required:    true,
-				Description: "The list of rules for the prefix list, matched in order of priority (first elements have the highest priority).",
+				Description: "The set of rules for the prefix list.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"action": {
@@ -86,7 +86,7 @@ func resourceRouterPrefixListCreate(ctx context.Context, d *schema.ResourceData,
 	req := &gona.CreateRouterPrefixListRequest{
 		Name:      d.Get("name").(string),
 		IPVersion: d.Get("ip_version").(int),
-		Rules:     expandPrefixListRules(d.Get("rule").([]interface{})),
+		Rules:     expandPrefixListRules(d.Get("rule").(*schema.Set)),
 	}
 
 	if v, ok := d.GetOk("description"); ok {
@@ -152,7 +152,7 @@ func resourceRouterPrefixListUpdate(ctx context.Context, d *schema.ResourceData,
 	req := &gona.UpdateRouterPrefixListRequest{
 		Name:      d.Get("name").(string),
 		IPVersion: d.Get("ip_version").(int),
-		Rules:     expandPrefixListRules(d.Get("rule").([]interface{})),
+		Rules:     expandPrefixListRules(d.Get("rule").(*schema.Set)),
 	}
 
 	if v, ok := d.GetOk("description"); ok {
@@ -216,9 +216,14 @@ func parsePrefixListID(id string) (int, int, error) {
 	return routerID, prefixListID, nil
 }
 
-func expandPrefixListRules(raw []interface{}) []gona.PrefixListRule {
-	rules := make([]gona.PrefixListRule, len(raw))
-	for i, r := range raw {
+func expandPrefixListRules(raw *schema.Set) []gona.PrefixListRule {
+	if raw == nil {
+		return nil
+	}
+
+	items := raw.List()
+	rules := make([]gona.PrefixListRule, len(items))
+	for i, r := range items {
 		ruleMap := r.(map[string]interface{})
 		rules[i] = gona.PrefixListRule{
 			Action: ruleMap["action"].(string),
