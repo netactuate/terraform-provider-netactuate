@@ -2,7 +2,9 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -48,7 +50,7 @@ func resourceRouterVRF() *schema.Resource {
 			},
 		},
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceRouterVRFImport,
 		},
 	}
 }
@@ -77,7 +79,7 @@ func resourceRouterVRFCreate(ctx context.Context, d *schema.ResourceData, m inte
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(vrf.VrfID))
+	d.SetId(fmt.Sprintf("%d/%d", routerID, vrf.VrfID))
 
 	return resourceRouterVRFRead(ctx, d, m)
 }
@@ -85,8 +87,7 @@ func resourceRouterVRFCreate(ctx context.Context, d *schema.ResourceData, m inte
 func resourceRouterVRFRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, err := parseRouterVRFImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -103,6 +104,7 @@ func resourceRouterVRFRead(ctx context.Context, d *schema.ResourceData, m interf
 	setValue("vrf_id", vrf.VrfID, d, &diags)
 	setValue("name", vrf.Name, d, &diags)
 	setValue("description", vrf.Description, d, &diags)
+	d.SetId(fmt.Sprintf("%d/%d", routerID, vrf.VrfID))
 
 	return diags
 }
@@ -110,8 +112,7 @@ func resourceRouterVRFRead(ctx context.Context, d *schema.ResourceData, m interf
 func resourceRouterVRFUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, err := parseRouterVRFImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -142,15 +143,13 @@ func resourceRouterVRFUpdate(ctx context.Context, d *schema.ResourceData, m inte
 func resourceRouterVRFDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID, err := strconv.Atoi(d.Id())
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
+	routerID, vrfID, err := parseRouterVRFImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterVRF(routerID, vrfID)
 	if err != nil {
@@ -160,4 +159,36 @@ func resourceRouterVRFDelete(ctx context.Context, d *schema.ResourceData, m inte
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceRouterVRFImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, err := parseRouterVRFImportID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d", routerID, vrfID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFImportID(id string) (int, int, error) {
+	parts := strings.SplitN(id, "/", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid VRF ID %q, expected \"routerId/vrfId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	return routerID, vrfID, nil
 }

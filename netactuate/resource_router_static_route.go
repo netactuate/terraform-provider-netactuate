@@ -18,9 +18,6 @@ func resourceRouterStaticRoute() *schema.Resource {
 		ReadContext:   resourceRouterStaticRouteRead,
 		UpdateContext: resourceRouterStaticRouteUpdate,
 		DeleteContext: resourceRouterStaticRouteDelete,
-		Importer: &schema.ResourceImporter{
-			StateContext: resourceRouterStaticRouteImport,
-		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -177,6 +174,7 @@ func resourceRouterStaticRouteRead(ctx context.Context, d *schema.ResourceData, 
 	if route.Via.IPSecPeerID != nil {
 		setValue("ipsec_peer_id", *route.Via.IPSecPeerID, d, &diags)
 	}
+    d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, route.RouteID))
 
 	return diags
 }
@@ -233,19 +231,6 @@ func resourceRouterStaticRouteDelete(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 	return nil
-}
-
-func resourceRouterStaticRouteImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	routerID, vrfID, routeID, err := parseStaticRouteID(d.Id())
-	if err != nil {
-		return nil, fmt.Errorf("invalid import ID %q, expected \"routerId/vrfId/routeId\" (e.g. \"42/1/10\")", d.Id())
-	}
-
-	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, routeID))
-	d.Set("router_id", routerID)
-	d.Set("vrf_id", vrfID)
-
-	return []*schema.ResourceData{d}, nil
 }
 
 func parseStaticRouteID(id string) (int, int, int, error) {

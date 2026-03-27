@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -99,7 +100,7 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 			},
 		},
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceRouterVRFIPSecPeerImport,
 		},
 	}
 }
@@ -161,7 +162,7 @@ func resourceRouterVRFIPSecPeerCreate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(peer.IPSecPeerID))
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, peer.IPSecPeerID))
 
 	return resourceRouterVRFIPSecPeerRead(ctx, d, m)
 }
@@ -169,9 +170,7 @@ func resourceRouterVRFIPSecPeerCreate(ctx context.Context, d *schema.ResourceDat
 func resourceRouterVRFIPSecPeerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	peerID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, peerID, err := parseRouterVRFIPSecPeerImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -199,6 +198,7 @@ func resourceRouterVRFIPSecPeerRead(ctx context.Context, d *schema.ResourceData,
 	setValue("local_id", peer.LocalID, d, &diags)
 	setValue("overlay_ipv4", peer.OverlayNetwork.IPv4, d, &diags)
 	setValue("overlay_ipv6", peer.OverlayNetwork.IPv6, d, &diags)
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, peer.IPSecPeerID))
 
 	return diags
 }
@@ -206,16 +206,13 @@ func resourceRouterVRFIPSecPeerRead(ctx context.Context, d *schema.ResourceData,
 func resourceRouterVRFIPSecPeerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	peerID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, peerID, err := parseRouterVRFIPSecPeerImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	req := buildIPSecPeerRequest(d)
 
@@ -230,16 +227,13 @@ func resourceRouterVRFIPSecPeerUpdate(ctx context.Context, d *schema.ResourceDat
 func resourceRouterVRFIPSecPeerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	peerID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, peerID, err := parseRouterVRFIPSecPeerImportID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterVRFIPSecPeer(routerID, vrfID, peerID)
 	if err != nil {
@@ -251,4 +245,42 @@ func resourceRouterVRFIPSecPeerDelete(ctx context.Context, d *schema.ResourceDat
 
 	d.SetId("")
 	return nil
+}
+
+func resourceRouterVRFIPSecPeerImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, peerID, err := parseRouterVRFIPSecPeerImportID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, peerID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+	d.Set("ipsec_peer_id", peerID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFIPSecPeerImportID(id string) (int, int, int, error) {
+	parts := strings.SplitN(id, "/", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("invalid IPSec peer ID %q, expected \"routerId/vrfId/ipsecPeerId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	peerID, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid ipsec_peer_id %q: %w", parts[2], err)
+	}
+
+	return routerID, vrfID, peerID, nil
 }

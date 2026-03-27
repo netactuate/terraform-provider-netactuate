@@ -134,6 +134,7 @@ func resourceRouterPrefixListRead(ctx context.Context, d *schema.ResourceData, m
 	setValue("ip_version", prefixList.IPVersion, d, &diags)
 	setValue("description", prefixList.Description, d, &diags)
 	setValue("rule", flattenPrefixListRules(prefixList.Rules), d, &diags)
+	d.SetId(fmt.Sprintf("%d/%d", routerID, prefixList.PrefixListID))
 
 	return diags
 }

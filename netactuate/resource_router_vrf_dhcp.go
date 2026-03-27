@@ -3,6 +3,8 @@ package netactuate
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -136,7 +138,7 @@ func resourceRouterVRFDHCP() *schema.Resource {
 			},
 		},
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceRouterVRFDHCPImport,
 		},
 	}
 }
@@ -146,6 +148,13 @@ func resourceRouterVRFDHCPUpdate(ctx context.Context, d *schema.ResourceData, m 
 
 	routerID := d.Get("router_id").(int)
 	vrfID := d.Get("vrf_id").(int)
+	if d.Id() != "" {
+		var err error
+		routerID, vrfID, err = parseRouterVRFDHCPImportID(d.Id())
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
 
 	unlock := lockRouter(routerID)
 	defer unlock()
@@ -225,10 +234,9 @@ func resourceRouterVRFDHCPRead(ctx context.Context, d *schema.ResourceData, m in
 	var err error
 
 	if d.Id() != "" {
-		var parseErr error
-		_, parseErr = fmt.Sscanf(d.Id(), "%d/%d", &routerID, &vrfID)
-		if parseErr != nil {
-			return diag.FromErr(parseErr)
+		routerID, vrfID, err = parseRouterVRFDHCPImportID(d.Id())
+		if err != nil {
+			return diag.FromErr(err)
 		}
 	} else {
 		routerID = d.Get("router_id").(int)
@@ -292,19 +300,23 @@ func resourceRouterVRFDHCPRead(ctx context.Context, d *schema.ResourceData, m in
 		setValue("static_routes", routes, d, &diags)
 	}
 
+	d.SetId(fmt.Sprintf("%d/%d", routerID, vrfID))
+
 	return diags
 }
 
 func resourceRouterVRFDHCPDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
+	routerID, vrfID, err := parseRouterVRFDHCPImportID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	unlock := lockRouter(routerID)
 	defer unlock()
 
-	_, err := c.GetRouter(routerID)
+	_, err = c.GetRouter(routerID)
 	if err != nil {
 		d.SetId("")
 		return nil
@@ -344,4 +356,36 @@ func resourceRouterVRFDHCPDelete(ctx context.Context, d *schema.ResourceData, m 
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceRouterVRFDHCPImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, err := parseRouterVRFDHCPImportID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d", routerID, vrfID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFDHCPImportID(id string) (int, int, error) {
+	parts := strings.SplitN(id, "/", 2)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid DHCP ID %q, expected \"routerId/vrfId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	return routerID, vrfID, nil
 }

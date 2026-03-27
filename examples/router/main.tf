@@ -72,7 +72,7 @@ resource "netactuate_router_vrf_snat_rule" "example" {
   ip_version = 4
   protocol = "TCP"
   description = "Example Terraform Router VRF SNAT Rule Description"
-  match_interface_id = netactuate_router_vrf_interface.example.id
+  match_interface_id = netactuate_router_vrf_interface.example.interface_id
   match_network = "192.168.1.0/24"
   match_port_start = 30000
   match_port_end = 31000
@@ -92,7 +92,7 @@ resource "netactuate_router_vrf_dnat_rule" "example" {
   ip_version = 4
   protocol = "TCP"
   description = "Example Terraform Router VRF DNAT Rule Description"
-  match_interface_id = netactuate_router_vrf_interface.example.id
+  match_interface_id = netactuate_router_vrf_interface.example.interface_id
   match_network = "192.168.1.0/24"
   match_port_start = 30000
   match_port_end = 31000
@@ -200,7 +200,7 @@ resource "netactuate_router_vrf_dhcp" "example" {
   router_id = netactuate_router.example.id
   vrf_id = netactuate_router.example.default_vrf_id
   enabled = true
-  interface_id = netactuate_router_vrf_interface.example.id
+  interface_id = netactuate_router_vrf_interface.example.interface_id
   subnet = "192.168.0.0/24"
   lease_timeout = 86400
   do_ping_check = true

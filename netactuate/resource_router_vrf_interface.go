@@ -2,7 +2,9 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -16,6 +18,9 @@ func resourceRouterVRFInterface() *schema.Resource {
 		ReadContext:   resourceRouterVRFInterfaceRead,
 		UpdateContext: resourceRouterVRFInterfaceUpdate,
 		DeleteContext: resourceRouterVRFInterfaceDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceRouterVRFInterfaceImport,
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -120,7 +125,7 @@ func resourceRouterVRFInterfaceCreate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(interfaceVRF.InterfaceID))
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, interfaceVRF.InterfaceID))
 
 	return resourceRouterVRFInterfaceRead(ctx, d, m)
 }
@@ -128,9 +133,7 @@ func resourceRouterVRFInterfaceCreate(ctx context.Context, d *schema.ResourceDat
 func resourceRouterVRFInterfaceRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	interfaceID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, interfaceID, err := parseRouterVRFInterfaceResourceID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -156,22 +159,21 @@ func resourceRouterVRFInterfaceRead(ctx context.Context, d *schema.ResourceData,
 		setValue("wireguard_port", *interfaceVRF.WireguardPort, d, &diags)
 	}
 
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, interfaceVRF.InterfaceID))
+
 	return diags
 }
 
 func resourceRouterVRFInterfaceUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	interfaceID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, interfaceID, err := parseRouterVRFInterfaceResourceID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	interfaceType := d.Get("type").(string)
 	name := d.Get("name").(string)
@@ -211,16 +213,13 @@ func resourceRouterVRFInterfaceUpdate(ctx context.Context, d *schema.ResourceDat
 func resourceRouterVRFInterfaceDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	interfaceID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, interfaceID, err := parseRouterVRFInterfaceResourceID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterVRFInterface(routerID, vrfID, interfaceID)
 	if err != nil {
@@ -230,4 +229,42 @@ func resourceRouterVRFInterfaceDelete(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceRouterVRFInterfaceImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, interfaceID, err := parseRouterVRFInterfaceResourceID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, interfaceID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+	d.Set("interface_id", interfaceID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFInterfaceResourceID(id string) (int, int, int, error) {
+	parts := strings.SplitN(id, "/", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("invalid interface ID %q, expected \"routerId/vrfId/interfaceId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	interfaceID, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid interface_id %q: %w", parts[2], err)
+	}
+
+	return routerID, vrfID, interfaceID, nil
 }

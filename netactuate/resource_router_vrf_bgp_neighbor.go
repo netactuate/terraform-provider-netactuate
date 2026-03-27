@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -170,7 +171,7 @@ func resourceRouterVRFBGPNeighbor() *schema.Resource {
 			},
 		},
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceRouterVRFBGPNeighborImport,
 		},
 	}
 }
@@ -274,7 +275,7 @@ func resourceRouterVRFBGPNeighborCreate(ctx context.Context, d *schema.ResourceD
 		return diag.FromErr(err)
 	}
 	var diags diag.Diagnostics
-	d.SetId(strconv.Itoa(resp.NeighborID))
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, resp.NeighborID))
 	setValue("neighbor_id", resp.NeighborID, d, &diags)
 
 	return resourceRouterVRFBGPNeighborRead(ctx, d, m)
@@ -283,12 +284,9 @@ func resourceRouterVRFBGPNeighborCreate(ctx context.Context, d *schema.ResourceD
 func resourceRouterVRFBGPNeighborRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-
-	neighborID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, neighborID, err := parseRouterVRFBGPNeighborImportID(d.Id())
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("error parsing neighbor ID: %w", err))
+		return diag.FromErr(err)
 	}
 
 	neighbor, err := c.GetRouterVRFBGPNeighbor(routerID, vrfID, neighborID)
@@ -358,15 +356,18 @@ func resourceRouterVRFBGPNeighborRead(ctx context.Context, d *schema.ResourceDat
 		}
 	}
 
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, neighbor.NeighborID))
+
 	return diags
 }
 
 func resourceRouterVRFBGPNeighborUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	neighborID := d.Get("neighbor_id").(int)
+	routerID, vrfID, neighborID, err := parseRouterVRFBGPNeighborImportID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	unlock := lockRouter(routerID)
 	defer unlock()
@@ -456,7 +457,7 @@ func resourceRouterVRFBGPNeighborUpdate(ctx context.Context, d *schema.ResourceD
 		}
 	}
 
-	_, err := c.UpdateRouterVRFBGPNeighbor(routerID, vrfID, neighborID, updateRequest)
+	_, err = c.UpdateRouterVRFBGPNeighbor(routerID, vrfID, neighborID, updateRequest)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -467,14 +468,15 @@ func resourceRouterVRFBGPNeighborUpdate(ctx context.Context, d *schema.ResourceD
 func resourceRouterVRFBGPNeighborDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	neighborID := d.Get("neighbor_id").(int)
+	routerID, vrfID, neighborID, err := parseRouterVRFBGPNeighborImportID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	unlock := lockRouter(routerID)
 	defer unlock()
 
-	err := c.DeleteRouterVRFBGPNeighbor(routerID, vrfID, neighborID)
+	err = c.DeleteRouterVRFBGPNeighbor(routerID, vrfID, neighborID)
 	if err != nil {
 		if gona.IsV3NotFound(err) {
 			return nil
@@ -482,4 +484,42 @@ func resourceRouterVRFBGPNeighborDelete(ctx context.Context, d *schema.ResourceD
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceRouterVRFBGPNeighborImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, neighborID, err := parseRouterVRFBGPNeighborImportID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, neighborID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+	d.Set("neighbor_id", neighborID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFBGPNeighborImportID(id string) (int, int, int, error) {
+	parts := strings.SplitN(id, "/", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("invalid BGP neighbor ID %q, expected \"routerId/vrfId/neighborId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	neighborID, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid neighbor_id %q: %w", parts[2], err)
+	}
+
+	return routerID, vrfID, neighborID, nil
 }

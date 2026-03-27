@@ -2,7 +2,9 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -14,6 +16,9 @@ func resourceRouterVRFInterfaceWireguardPeer() *schema.Resource {
 		CreateContext: resourceRouterVRFInterfaceWireguardPeerCreate,
 		ReadContext:   resourceRouterVRFInterfaceWireguardPeerRead,
 		DeleteContext: resourceRouterVRFInterfaceWireguardPeerDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceRouterVRFInterfaceWireguardPeerImport,
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -151,7 +156,7 @@ func resourceRouterVRFInterfaceWireguardPeerCreate(ctx context.Context, d *schem
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(createResp.WireguardPeerID))
+	d.SetId(fmt.Sprintf("%d/%d/%d/%d", routerID, vrfID, interfaceID, createResp.WireguardPeerID))
 
 	return resourceRouterVRFInterfaceWireguardPeerRead(ctx, d, m)
 }
@@ -159,10 +164,7 @@ func resourceRouterVRFInterfaceWireguardPeerCreate(ctx context.Context, d *schem
 func resourceRouterVRFInterfaceWireguardPeerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	interfaceID := d.Get("interface_id").(int)
-	wireguardPeerID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, interfaceID, wireguardPeerID, err := parseRouterVRFInterfaceWireguardPeerResourceID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -200,23 +202,21 @@ func resourceRouterVRFInterfaceWireguardPeerRead(ctx context.Context, d *schema.
 		setValue("pre_shared_key", peer.PreSharedKey, d, &diags)
 	}
 
+	d.SetId(fmt.Sprintf("%d/%d/%d/%d", routerID, vrfID, interfaceID, peer.WireguardPeerID))
+
 	return diags
 }
 
 func resourceRouterVRFInterfaceWireguardPeerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	interfaceID := d.Get("interface_id").(int)
-
-	unlock := lockRouter(routerID)
-	defer unlock()
-
-	wireguardPeerID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, interfaceID, wireguardPeerID, err := parseRouterVRFInterfaceWireguardPeerResourceID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	unlock := lockRouter(routerID)
+	defer unlock()
 
 	err = c.DeleteRouterVRFInterfaceWireguardPeer(routerID, vrfID, interfaceID, wireguardPeerID)
 	if err != nil {
@@ -226,4 +226,48 @@ func resourceRouterVRFInterfaceWireguardPeerDelete(ctx context.Context, d *schem
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceRouterVRFInterfaceWireguardPeerImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, interfaceID, wireguardPeerID, err := parseRouterVRFInterfaceWireguardPeerResourceID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d/%d", routerID, vrfID, interfaceID, wireguardPeerID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+	d.Set("interface_id", interfaceID)
+	d.Set("wireguard_peer_id", wireguardPeerID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterVRFInterfaceWireguardPeerResourceID(id string) (int, int, int, int, error) {
+	parts := strings.SplitN(id, "/", 4)
+	if len(parts) != 4 {
+		return 0, 0, 0, 0, fmt.Errorf("invalid wireguard peer ID %q, expected \"routerId/vrfId/interfaceId/wireguardPeerId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	interfaceID, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("invalid interface_id %q: %w", parts[2], err)
+	}
+
+	wireguardPeerID, err := strconv.Atoi(parts[3])
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("invalid wireguard_peer_id %q: %w", parts[3], err)
+	}
+
+	return routerID, vrfID, interfaceID, wireguardPeerID, nil
 }

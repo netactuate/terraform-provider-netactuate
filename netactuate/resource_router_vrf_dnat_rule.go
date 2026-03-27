@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -227,7 +228,8 @@ func resourceRouterVRFDNATRuleCreate(ctx context.Context, d *schema.ResourceData
 
 	var diags diag.Diagnostics
 
-	d.SetId(strconv.Itoa(rule.DNATRuleID))
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, rule.DNATRuleID))
+	setValue("dnat_rule_id", rule.DNATRuleID, d, &diags)
 	setValue("ip_version_computed", ipVersion, d, &diags)
 	return resourceRouterVRFDNATRuleRead(ctx, d, m)
 }
@@ -235,12 +237,13 @@ func resourceRouterVRFDNATRuleCreate(ctx context.Context, d *schema.ResourceData
 func resourceRouterVRFDNATRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	ipVersion := d.Get("ip_version_computed").(int)
-	dnatRuleID, err := strconv.Atoi(d.Id())
+	routerID, vrfID, dnatRuleID, err := parseRouterVRFDNATRuleResourceID(d.Id())
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
+		return diag.FromErr(err)
+	}
+	ipVersion := d.Get("ip_version_computed").(int)
+	if ipVersion == 0 {
+		ipVersion = d.Get("ip_version").(int)
 	}
 
 	rule, err := c.GetRouterVRFDNATRule(routerID, vrfID, dnatRuleID)
@@ -254,7 +257,10 @@ func resourceRouterVRFDNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 
 	var diags diag.Diagnostics
 
+	setValue("router_id", routerID, d, &diags)
+	setValue("vrf_id", vrfID, d, &diags)
 	setValue("ip_version", ipVersion, d, &diags)
+	setValue("ip_version_computed", ipVersion, d, &diags)
 	setValue("dnat_rule_id", rule.DNATRuleID, d, &diags)
 	setValue("protocol", rule.Protocol, d, &diags)
 	setValue("description", rule.Description, d, &diags)
@@ -281,23 +287,22 @@ func resourceRouterVRFDNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 		setValue("priority_after_dnat_rule_id", rule.Priority.AfterDnatRuleId, d, &diags)
 	}
 
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, rule.DNATRuleID))
+
 	return diags
 }
 
 func resourceRouterVRFDNATRuleUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
-	ipVersion := d.Get("ip_version_computed").(int)
+	routerID, vrfID, dnatRuleID, err := parseRouterVRFDNATRuleResourceID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	ipVersion := d.Get("ip_version").(int)
 
 	unlock := lockRouter(routerID)
 	defer unlock()
-
-	dnatRuleID, err := strconv.Atoi(d.Id())
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
-	}
 
 	req := &gona.UpdateRouterVRFDNATRuleRequest{
 		IPVersion: ipVersion,
@@ -313,25 +318,20 @@ func resourceRouterVRFDNATRuleUpdate(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 
-	var diags diag.Diagnostics
-
-	setValue("ip_version_computed", ipVersion, d, &diags)
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, dnatRuleID))
 	return resourceRouterVRFDNATRuleRead(ctx, d, m)
 }
 
 func resourceRouterVRFDNATRuleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	routerID := d.Get("router_id").(int)
-	vrfID := d.Get("vrf_id").(int)
+	routerID, vrfID, dnatRuleID, err := parseRouterVRFDNATRuleResourceID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	unlock := lockRouter(routerID)
 	defer unlock()
-
-	dnatRuleID, err := strconv.Atoi(d.Id())
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid DNAT rule ID: %w", err))
-	}
 
 	err = c.DeleteRouterVRFDNATRule(routerID, vrfID, dnatRuleID)
 	if err != nil {
@@ -342,4 +342,28 @@ func resourceRouterVRFDNATRuleDelete(ctx context.Context, d *schema.ResourceData
 	}
 
 	return nil
+}
+
+func parseRouterVRFDNATRuleResourceID(id string) (int, int, int, error) {
+	parts := strings.SplitN(id, "/", 3)
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("invalid DNAT rule ID %q, expected \"routerId/vrfId/dnatRuleId\"", id)
+	}
+
+	routerID, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid router_id %q: %w", parts[0], err)
+	}
+
+	vrfID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid vrf_id %q: %w", parts[1], err)
+	}
+
+	dnatRuleID, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid dnat_rule_id %q: %w", parts[2], err)
+	}
+
+	return routerID, vrfID, dnatRuleID, nil
 }
