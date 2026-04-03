@@ -95,7 +95,8 @@ resource "terraform_data" "kubeconfig_file" {
   }
 }
 
-# Worker nodes — captured on first apply, suppresses diffs on subsequent plans
+# Worker nodes — captured once at first apply; ignore_changes suppresses constant
+# diffs from autoscaling events (nodes added/removed without user action needed)
 data "netactuate_nke_worker_nodes" "nodes" {
   cluster_id = netactuate_nke_cluster.example.cluster_id
   depends_on = [netactuate_nke_cluster.example]
