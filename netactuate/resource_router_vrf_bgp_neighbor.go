@@ -12,6 +12,15 @@ import (
 	"github.com/netactuate/gona/gona"
 )
 
+// int64 comparison keeps the 4294967294 (4-byte ASN max) bound from overflowing a 32-bit int at compile time on 386/arm builds.
+func validateASN(v interface{}, k string) (warns []string, errs []error) {
+	asn := v.(int)
+	if asn < 1 || int64(asn) > 4294967294 {
+		errs = append(errs, fmt.Errorf("%q must be in the range 1-4294967294, got %d", k, asn))
+	}
+	return
+}
+
 func resourceRouterVRFBGPNeighbor() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceRouterVRFBGPNeighborCreate,
@@ -95,7 +104,7 @@ func resourceRouterVRFBGPNeighbor() *schema.Resource {
 			"remote_asn": {
 				Type:         schema.TypeInt,
 				Required:     true,
-				ValidateFunc: validation.IntBetween(1, 4294967294),
+				ValidateFunc: validateASN,
 				Description:  "The ASN for your neighbor.",
 			},
 			"md5_secret": {
