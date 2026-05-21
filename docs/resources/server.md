@@ -9,7 +9,7 @@ Manages a NetActuate cloud virtual machine (server). Servers are deployed into a
 ```hcl
 resource "netactuate_sshkey" "default" {
   name       = "my-key"
-  public_key = file("~/.ssh/id_ed25519.pub")
+  key = file("~/.ssh/id_ed25519.pub")
 }
 
 resource "netactuate_server" "web" {

@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
-//Terraform versions, just need if we want to have output versions, we don't modifying this with requests
+
 func dataSourceNKEVersions() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceNKEVersionsRead,

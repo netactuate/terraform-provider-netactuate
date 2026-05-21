@@ -7,7 +7,7 @@ Manages a NetActuate bare metal server. Bare metal servers provide dedicated phy
 ```hcl
 resource "netactuate_sshkey" "default" {
   name       = "my-key"
-  public_key = file("~/.ssh/id_ed25519.pub")
+  key = file("~/.ssh/id_ed25519.pub")
 }
 
 resource "netactuate_metal" "edge" {

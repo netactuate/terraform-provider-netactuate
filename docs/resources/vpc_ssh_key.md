@@ -7,7 +7,7 @@ Associates an account-level SSH key with a VPC, enabling or disabling it for use
 ```hcl
 resource "netactuate_sshkey" "deploy" {
   name       = "deploy-key"
-  public_key = file("~/.ssh/id_rsa.pub")
+  key = file("~/.ssh/id_rsa.pub")
 }
 
 resource "netactuate_vpc" "main" {
@@ -42,7 +42,7 @@ output "ssh_key_fingerprint" {
 
 - `name` (String) — The name of the SSH key.
 - `fingerprint` (String) — The SSH key fingerprint.
-- `public_key` (String) — The public key content.
+- `key` (String) — The public key content.
 
 ## Import
 

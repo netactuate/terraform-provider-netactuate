@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
-//Kubeconfig need only to get kubeconfig for connection, not affect k8s struct
+
 func dataSourceNKEKubeconfig() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceNKEKubeconfigRead,
