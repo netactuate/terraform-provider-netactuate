@@ -50,9 +50,11 @@ output "storage_pool" {
 - `total_capacity_gb` (Number) — Currently provisioned capacity in GB.
 - `auto_scaling` (Boolean) — Current auto-scaling state.
 - `endpoints` (List of String) — Ceph monitor endpoints (host:port).
-- `storage_pool` (String) — The Ceph pool name.
+- `storage_pool` (String) — The Ceph pool name. In NetActuate block-namespace workflows this is typically `global-block-pool`.
 - `storage_namespace` (String) — The Ceph namespace within the pool.
 - `storage_cluster_id` (String) — The Ceph cluster UUID.
+- `user_key` (String, Sensitive) — Ceph client user key for namespace-backed RBD operations.
+- `secret_key` (String, Sensitive) — Ceph client secret key for namespace-backed RBD operations.
 
 ## Import
 

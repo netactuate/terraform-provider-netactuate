@@ -106,13 +106,14 @@ func resourceRouterVRFDHCP() *schema.Resource {
 			"ntp_servers": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "The NTP servers provided by the DHCP service to clients.",
+				Description: "The NTP servers provided by the DHCP service to clients (IPv4 addresses only).",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"address": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "The IP address of the NTP server.",
+							Type:             schema.TypeString,
+							Required:         true,
+							ValidateDiagFunc: validation.ToDiagFunc(validation.IsIPv4Address),
+							Description:      "The IPv4 address of the NTP server.",
 						},
 					},
 				},
@@ -335,17 +336,17 @@ func resourceRouterVRFDHCPDelete(ctx context.Context, d *schema.ResourceData, m 
 	}
 
 	disableRequest := gona.UpdateRouterVRFDHCPRequest{
-		Enabled:      false,
-		Subnet:       dhcpConfig.Subnet,
-		LeaseTimeout: dhcpConfig.LeaseTimeout,
-		DoPingCheck:  dhcpConfig.DoPingCheck,
+		Enabled:              false,
+		Subnet:               dhcpConfig.Subnet,
+		LeaseTimeout:         dhcpConfig.LeaseTimeout,
+		DoPingCheck:          dhcpConfig.DoPingCheck,
 		DefaultRouterAddress: dhcpConfig.DefaultRouterAddress,
-		ClientDomainName: dhcpConfig.ClientDomainName,
-		InterfaceID: dhcpConfig.InterfaceID,
-		Range: dhcpConfig.Range,
-		DomainNameServers: dhcpConfig.DomainNameServers,
-        NTPServers: dhcpConfig.NTPServers,
-        StaticRoutes: dhcpConfig.StaticRoutes,
+		ClientDomainName:     dhcpConfig.ClientDomainName,
+		InterfaceID:          dhcpConfig.InterfaceID,
+		Range:                dhcpConfig.Range,
+		DomainNameServers:    dhcpConfig.DomainNameServers,
+		NTPServers:           dhcpConfig.NTPServers,
+		StaticRoutes:         dhcpConfig.StaticRoutes,
 	}
 
 	_, err = c.UpdateRouterVRFDHCP(routerID, vrfID, &disableRequest)

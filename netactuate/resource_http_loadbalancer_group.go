@@ -151,9 +151,18 @@ func resourceHTTPLoadbalancerGroup() *schema.Resource {
 							Description: "SSL certificate ID (omit for auto SSL)",
 						},
 						"https_redirect_enabled": {
-							Type:        schema.TypeBool,
-							Optional:    true,
-							Default:     false,
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+							// The API forces httpsRedirectEnabled=true whenever ssl_enabled=true,
+							// regardless of the requested value. Suppress the diff so that
+							// setting https_redirect_enabled=false in config with ssl_enabled=true
+							// doesn't produce a perpetual no-op plan change.
+							DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+								prefix := k[:strings.LastIndex(k, ".")]
+								ssl, _ := d.GetOk(prefix + ".ssl_enabled")
+								return ssl.(bool)
+							},
 							Description: "Whether to redirect HTTP to HTTPS",
 						},
 					},
@@ -366,13 +375,13 @@ func expandHTTPLBRules(raw []interface{}) []gona.HTTPLBGroupRule {
 	for i, r := range raw {
 		rule := r.(map[string]interface{})
 		gr := gona.HTTPLBGroupRule{
+			HTTPSRedirectEnabled: rule["https_redirect_enabled"].(bool),
 			Match: gona.HTTPLBGroupRuleMatch{
 				Domain: rule["match_domain"].(string),
 				Path:   rule["match_path"].(string),
 			},
 			SSL: gona.HTTPLBGroupRuleSSL{
-				Enabled:              rule["ssl_enabled"].(bool),
-				HTTPSRedirectEnabled: rule["https_redirect_enabled"].(bool),
+				Enabled: rule["ssl_enabled"].(bool),
 			},
 		}
 		if v, ok := rule["ssl_certificate_id"]; ok && v.(int) > 0 {
@@ -406,12 +415,12 @@ func flattenHTTPLBRules(rules []gona.HTTPLBGroupRule) []map[string]interface{} {
 			certID = *r.SSL.SSLCertificateID
 		}
 		result[i] = map[string]interface{}{
-			"http_rule_id":          r.HTTPRuleID,
-			"match_domain":          r.Match.Domain,
-			"match_path":            r.Match.Path,
-			"ssl_enabled":           r.SSL.Enabled,
-			"ssl_certificate_id":    certID,
-			"https_redirect_enabled": r.SSL.HTTPSRedirectEnabled,
+			"http_rule_id":           r.HTTPRuleID,
+			"match_domain":           r.Match.Domain,
+			"match_path":             r.Match.Path,
+			"ssl_enabled":            r.SSL.Enabled,
+			"ssl_certificate_id":     certID,
+			"https_redirect_enabled": r.HTTPSRedirectEnabled,
 		}
 	}
 	return result

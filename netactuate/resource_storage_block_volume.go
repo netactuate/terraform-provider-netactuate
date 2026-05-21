@@ -105,6 +105,18 @@ func resourceStorageBlockVolume() *schema.Resource {
 				Computed:    true,
 				Description: "The block storage image name",
 			},
+			"user_key": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Sensitive:   true,
+				Description: "The Ceph user key for block storage access",
+			},
+			"secret_key": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Sensitive:   true,
+				Description: "The Ceph secret key for block storage access",
+			},
 		},
 	}
 }
@@ -181,6 +193,8 @@ func resourceStorageBlockVolumeRead(ctx context.Context, d *schema.ResourceData,
 	setValue("storage_namespace", vol.Credentials.Namespace, d, &diags)
 	setValue("storage_cluster_id", vol.Credentials.ClusterID, d, &diags)
 	setValue("image_name", vol.Credentials.ImageName, d, &diags)
+	setValue("user_key", vol.Credentials.UserKey, d, &diags)
+	setValue("secret_key", vol.Credentials.SecretKey, d, &diags)
 
 	return diags
 }

@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars and fill in the values below.
+# Values marked "from example NN" come from: cd ../NN-* && terraform output <name>
+
+api_key             = ""     # or set NETACTUATE_API_KEY env var
+billing_contract_id = "301"  # your NetActuate billing contract ID
+
+# ── BGP over WireGuard (router <-> edge VM) ───────────────────────────────────
+local_asn      = "65001"           # your BGP ASN (as a string)
+anycast_prefix = "203.0.113.0/24"  # IPv4 prefix to advertise to the edge VM over BGP
+
+upstream_peer_ip  = "10.200.0.2"    # WireGuard tunnel IP of edge VM peer (not the public IP)
+upstream_peer_asn = 65001           # ASN of the edge VM BGP daemon (e.g. BIRD)
+
+# ── From example 03 outputs ───────────────────────────────────────────────────
+# cd ../03-vpc-load-balancer && terraform output
+vpc_cidr       = "10.10.0.0/24"  # terraform output vpc_cidr
+vpc_bastion_ip = ""               # terraform output bastion_ipv4
+
+# ── From example 01 + edge VM ────────────────────────────────────────────────
+# 1. cd ../01-vm-s3 && terraform output wireguard_endpoint
+wireguard_remote_endpoint = ""  # e.g. "203.0.113.5:51820"
+
+# 2. Follow example 01's wireguard_setup_guide output to install WireGuard on
+#    the VM and generate keys, then:
+#    ssh ubuntu@<vm_ip> sudo cat /etc/wireguard/public.key
+wireguard_remote_public_key = ""  # VM's WireGuard public key
+
+# ── Optional (have defaults) ──────────────────────────────────────────────────
+location             = "SJC"
+router_plan          = "VR1x1x25"
+wireguard_port       = 51820
+wireguard_allowed_ips = ["10.200.0.0/30", "10.10.0.0/24"]  # include tunnel subnet so BGP over WG works

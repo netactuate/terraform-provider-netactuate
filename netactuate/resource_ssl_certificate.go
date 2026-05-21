@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -174,13 +176,26 @@ func resourceSSLCertificateDelete(ctx context.Context, d *schema.ResourceData, m
 
 	log.Printf("[DEBUG] Deleting SSL certificate %d", id)
 
-	if err := c.DeleteSSLCertificate(id); err != nil {
+	// The API rejects cert deletion while an HTTP LB group that referenced it
+	// is still being torn down. Retry briefly to let the usage reference clear.
+	const retries = 10
+	const retryInterval = 5 * time.Second
+	for i := 0; i < retries; i++ {
+		err := c.DeleteSSLCertificate(id)
+		if err == nil {
+			return nil
+		}
 		if gona.IsV3NotFound(err) {
 			log.Printf("[WARN] SSL certificate %d already deleted", id)
 			return nil
 		}
+		if strings.Contains(err.Error(), "actively used") {
+			log.Printf("[DEBUG] SSL certificate %d still in use, retrying (%d/%d)...", id, i+1, retries)
+			time.Sleep(retryInterval)
+			continue
+		}
 		return diag.FromErr(err)
 	}
 
-	return nil
+	return diag.Errorf("SSL certificate %d still reported as in-use after %d retries", id, retries)
 }

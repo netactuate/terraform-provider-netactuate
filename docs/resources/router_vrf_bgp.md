@@ -8,7 +8,7 @@ Configures the BGP daemon on a VRF. Sets the local ASN and the networks to adver
 resource "netactuate_router_vrf_bgp" "bgp" {
   router_id = netactuate_router.main.id
   vrf_id    = netactuate_router.main.default_vrf_id
-  local_asn = 65001
+  local_asn = "65001"
 
   networks {
     subnet = "203.0.113.0/24"
@@ -26,7 +26,7 @@ resource "netactuate_router_vrf_bgp" "bgp" {
 
 - `router_id` (Number) — The ID of the cloud router. Forces recreation.
 - `vrf_id` (Number) — The ID of the VRF. Forces recreation.
-- `local_asn` (Number) — Your local BGP ASN. Valid range: 1–4294967294.
+- `local_asn` (String) — Your local BGP ASN. Valid range: 1–4294967294. Must be provided as a quoted string, e.g. `"65001"`.
 - `networks` (Block List, min 1) — Networks to announce over BGP sessions. Each block:
   - `subnet` (String, required) — Network prefix in CIDR notation, e.g. `"203.0.113.0/24"`.
 

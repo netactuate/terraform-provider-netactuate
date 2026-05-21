@@ -81,6 +81,11 @@ func resourceRouterVRFInterface() *schema.Resource {
 				ValidateFunc: validation.IntBetween(1, 65535),
 				Description:  "The port to use if this is a wireguard interface. Must be between 1 and 65535.",
 			},
+			"wireguard_public_key": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The WireGuard public key of this interface (router-generated). Use this as the peer public key when configuring the remote end of the tunnel.",
+			},
 		},
 	}
 }
@@ -157,6 +162,9 @@ func resourceRouterVRFInterfaceRead(ctx context.Context, d *schema.ResourceData,
 	setValue("ethernet_hardware_id", interfaceVRF.EthernetHardwareID, d, &diags)
 	if interfaceVRF.WireguardPort != nil {
 		setValue("wireguard_port", *interfaceVRF.WireguardPort, d, &diags)
+	}
+	if interfaceVRF.PublicKey != nil {
+		setValue("wireguard_public_key", *interfaceVRF.PublicKey, d, &diags)
 	}
 
 	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, interfaceVRF.InterfaceID))

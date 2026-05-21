@@ -19,8 +19,9 @@ resource "netactuate_server" "scalable" {
   plan = "VR1x1x25"
   # plan = "VR2x2x25"   # deploy VR1x1x25 and uncomment this for scale
 
-  # Allow the API to reboot the server during scaling. Required for RAM downscaling. Default is true.
-  # allow_reboot = true
+  # Upgrades (larger plan, no reboot) apply automatically. A downsize/reboot is
+  # rejected during apply before the scale API call unless you opt in. Default is false.
+  # allow_downsize_reboot = true
 }
 
 output "server_id" {

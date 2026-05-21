@@ -27,13 +27,13 @@ resource "netactuate_router_vrf_bgp_neighbor" "upstream" {
   remote_asn       = 64512
   do_next_hop_self = true
 
-  ipv4_unicast = true
-  ipv6_unicast = false
+  ipv4_enabled = true
+  ipv6_enabled = false
 
   import_default_drop = true
   import_rules {
-    prefix_list_id     = netactuate_router_prefix_list.allow_private.prefix_list_id
-    action             = "permit"
+    prefix_list_id       = netactuate_router_prefix_list.allow_private.prefix_list_id
+    action               = "permit"
     set_local_preference = 200
   }
 
@@ -53,7 +53,7 @@ resource "netactuate_router_vrf_bgp_neighbor" "rr" {
   md5_secret     = var.bgp_md5_secret
   ebgp_multihop  = 3
   source_address = "10.0.0.2"
-  ipv4_unicast   = true
+  ipv4_enabled   = true
 }
 ```
 
@@ -74,8 +74,8 @@ resource "netactuate_router_vrf_bgp_neighbor" "rr" {
 - `do_as_override` (Boolean) — Enable AS override on outbound updates. Useful when multiple peers share the same ASN.
 - `do_next_hop_self` (Boolean) — Enable `next-hop-self` on outbound updates. Recommended for eBGP.
 - `source_address` (String) — Source IP for establishing the BGP session (update-source).
-- `ipv4_unicast` (Boolean) — Enable the IPv4 unicast address family.
-- `ipv6_unicast` (Boolean) — Enable the IPv6 unicast address family.
+- `ipv4_enabled` (Boolean) — Enable the IPv4 unicast address family.
+- `ipv6_enabled` (Boolean) — Enable the IPv6 unicast address family.
 - `ebgp_multihop` (Number) — eBGP multihop TTL. Valid range: 1–255.
 - `md5_secret` (String, Sensitive) — MD5 authentication password. Valid length: 1–128 chars.
 - `import_default_drop` (Boolean) — Drop all imported routes that do not match an `import_rules` entry.

@@ -47,10 +47,12 @@ output "endpoints" {
 - `location_name` (String) — Full location name.
 - `total_capacity_gb` (Number) — Currently provisioned capacity in GB.
 - `endpoints` (List of String) — Ceph monitor endpoints (host:port).
-- `storage_pool` (String) — The Ceph pool name.
+- `storage_pool` (String) — The Ceph pool name. In NetActuate block-volume workflows this is typically `global-block-pool`.
 - `storage_namespace` (String) — The Ceph namespace.
 - `storage_cluster_id` (String) — The Ceph cluster UUID.
 - `image_name` (String) — The RBD image name for this volume.
+- `user_key` (String, Sensitive) — Ceph client user key for RBD operations.
+- `secret_key` (String, Sensitive) — Ceph client secret key for RBD operations.
 
 ## Import
 

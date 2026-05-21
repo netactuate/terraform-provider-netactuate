@@ -1,0 +1,75 @@
+# Tenant storage objects for NetActuate RBD with Ceph CSI.
+# Install the CSI driver in namespace `ceph-csi-rbd` first (per NetActuate docs),
+# then render this template via `terraform output -raw tenant_storage_manifest`.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${tenant_namespace}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${csi_secret_name}
+  namespace: ${tenant_namespace}
+type: Opaque
+stringData:
+  userID: "${rbd_user_id}"
+  userKey: "${rbd_user_key}"
+
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ${storage_class_name}
+provisioner: rbd.csi.ceph.com
+parameters:
+  clusterID: "${cluster_id}"
+  pool: "${pool}"
+  radosNamespace: "${rados_namespace}"
+  imageFeatures: layering
+  csi.storage.k8s.io/fstype: ext4
+  csi.storage.k8s.io/provisioner-secret-name: ${csi_secret_name}
+  csi.storage.k8s.io/provisioner-secret-namespace: ${tenant_namespace}
+  csi.storage.k8s.io/node-stage-secret-name: ${csi_secret_name}
+  csi.storage.k8s.io/node-stage-secret-namespace: ${tenant_namespace}
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+mountOptions:
+  - discard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${pvc_name}
+  namespace: ${tenant_namespace}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ${storage_class_name}
+  resources:
+    requests:
+      storage: ${pvc_size}
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${pod_name}
+  namespace: ${tenant_namespace}
+spec:
+  containers:
+    - name: test-container
+      image: busybox
+      command: ["sh", "-c", "echo 'mounted:'; df -h /mnt/rbd || true; sleep 3600"]
+      volumeMounts:
+        - name: rbd-vol
+          mountPath: /mnt/rbd
+  volumes:
+    - name: rbd-vol
+      persistentVolumeClaim:
+        claimName: ${pvc_name}

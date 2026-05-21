@@ -226,7 +226,12 @@ func resourceVPCGatewaySNATRuleRead(ctx context.Context, d *schema.ResourceData,
 	if rule.Translation != nil {
 		if rule.Translation.Address != nil {
 			setValue("translation_address_start", rule.Translation.Address.Start, d, &diags)
-			setValue("translation_address_end", rule.Translation.Address.End, d, &diags)
+			// API may omit end when it is equivalent to start for single-IP translation.
+			addrEnd := rule.Translation.Address.End
+			if addrEnd == "" && rule.Translation.Address.Start != "" {
+				addrEnd = rule.Translation.Address.Start
+			}
+			setValue("translation_address_end", addrEnd, d, &diags)
 		}
 		if rule.Translation.Port != nil {
 			setValue("translation_port_start", rule.Translation.Port.Start, d, &diags)

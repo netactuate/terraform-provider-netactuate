@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in the values below.
+# Note: billing_contract_id must be a usage-type NKE contract, not a standard compute contract.
+
+api_key             = ""  # or set NETACTUATE_API_KEY env var
+billing_contract_id = 0   # your NetActuate NKE billing contract ID
+
+location = "SJC"
+
+# ── Optional (have defaults) ──────────────────────────────────────────────────
+# node_plan              = "VR2x2x25"
+# kubernetes_version     = "1.35.0"
+# block_storage_capacity = 100
+# test_pvc_size          = "10Gi"

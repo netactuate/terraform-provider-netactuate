@@ -203,11 +203,11 @@ func resourceRouterCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
+	d.SetId(strconv.Itoa(router.RouterID))
+
 	if err := c.WaitForRouterReady(router.RouterID); err != nil {
 		return diag.Errorf("Router %d created but failed to become ready: %s", router.RouterID, err)
 	}
-
-	d.SetId(strconv.Itoa(router.RouterID))
 
 	log.Printf("[DEBUG] Cloud router created with ID: %d", router.RouterID)
 

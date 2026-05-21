@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and fill in the values below.
+
+api_key             = ""  # or set NETACTUATE_API_KEY env var
+billing_contract_id = ""  # your NetActuate billing contract ID
+
+ssh_public_key  = "ssh-ed25519 AAAA... you@example.com"
+location        = "SJC"
+management_cidr = "203.0.113.5/32"  # restrict to your management IP in production
+

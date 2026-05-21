@@ -112,6 +112,18 @@ func resourceStorageBlockNamespace() *schema.Resource {
 				Computed:    true,
 				Description: "The storage cluster ID",
 			},
+			"user_key": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Sensitive:   true,
+				Description: "The Ceph user key for namespace access",
+			},
+			"secret_key": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Sensitive:   true,
+				Description: "The Ceph secret key for namespace access",
+			},
 		},
 	}
 }
@@ -190,6 +202,8 @@ func resourceStorageBlockNamespaceRead(ctx context.Context, d *schema.ResourceDa
 	setValue("storage_pool", ns.Credentials.Pool, d, &diags)
 	setValue("storage_namespace", ns.Credentials.Namespace, d, &diags)
 	setValue("storage_cluster_id", ns.Credentials.ClusterID, d, &diags)
+	setValue("user_key", ns.Credentials.UserKey, d, &diags)
+	setValue("secret_key", ns.Credentials.SecretKey, d, &diags)
 
 	return diags
 }

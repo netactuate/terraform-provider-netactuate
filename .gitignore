@@ -4,6 +4,10 @@
 
 .terraform*
 terraform.tfstate*
+terraform.tfvars
+kubeconfig.yaml
+*.pem
+*.key
 
 vendor
 bin

@@ -11,7 +11,7 @@ resource "netactuate_vpc" "main" {
   label               = "prod-vpc"
   description         = "Production VPC"
   location            = "SJC"
-  ipv4_network        = "10.0.0.0/24"
+  network_ipv4        = "10.0.0.0/24"
   enable_default_snat = true
 }
 
@@ -20,7 +20,7 @@ output "vpc_id" {
 }
 
 output "bastion_ip" {
-  value = netactuate_vpc.main.bastion_ipv4_address
+  value = netactuate_vpc.main.bastion_ipv4
 }
 ```
 
@@ -31,13 +31,13 @@ resource "netactuate_vpc" "secured" {
   label               = "secured-vpc"
   description         = "VPC with inbound firewall"
   location            = "SJC"
-  ipv4_network        = "10.10.0.0/24"
+  network_ipv4        = "10.10.0.0/24"
   enable_default_snat = true
 
-  ipv4_nameservers = ["1.1.1.1", "8.8.8.8"]
+  nameservers_ipv4 = ["1.1.1.1", "8.8.8.8"]
 
-  firewall_inbound_ipv4_enabled  = true
-  firewall_outbound_ipv4_enabled = false
+  firewall_ipv4_inbound  = true
+  firewall_ipv4_outbound = false
 }
 ```
 
@@ -55,23 +55,23 @@ resource "netactuate_vpc" "secured" {
 
 ### Optional
 
-- `ipv4_network` (String) — IPv4 CIDR block for the VPC private network, e.g. `"10.0.0.0/24"`. Forces recreation.
-- `ipv6_network` (String) — IPv6 CIDR block for the VPC private network. Forces recreation.
-- `ipv4_nameservers` (List of String) — IPv4 DNS servers for DHCP.
-- `ipv6_nameservers` (List of String) — IPv6 DNS servers for DHCP.
+- `network_ipv4` (String) — IPv4 CIDR block for the VPC private network, e.g. `"10.0.0.0/24"`. Forces recreation.
+- `network_ipv6` (String) — IPv6 CIDR block for the VPC private network. Forces recreation.
+- `nameservers_ipv4` (List of String) — IPv4 DNS servers for DHCP.
+- `nameservers_ipv6` (List of String) — IPv6 DNS servers for DHCP.
 - `enable_default_snat` (Boolean) — If `true`, a default SNAT rule is created allowing outbound internet access. Forces recreation.
-- `firewall_inbound_ipv4_enabled` (Boolean) — Enable inbound IPv4 firewall.
-- `firewall_outbound_ipv4_enabled` (Boolean) — Enable outbound IPv4 firewall.
-- `firewall_inbound_ipv6_enabled` (Boolean) — Enable inbound IPv6 firewall.
-- `firewall_outbound_ipv6_enabled` (Boolean) — Enable outbound IPv6 firewall.
+- `firewall_ipv4_inbound` (Boolean) — Enable inbound IPv4 firewall.
+- `firewall_ipv4_outbound` (Boolean) — Enable outbound IPv4 firewall.
+- `firewall_ipv6_inbound` (Boolean) — Enable inbound IPv6 firewall.
+- `firewall_ipv6_outbound` (Boolean) — Enable outbound IPv6 firewall.
 - `bastion_port` (Number) — SSH port for the bastion gateway.
 
 ### Computed
 
 - `vpc_id` (Number) — The API-assigned VPC ID.
 - `status` (String) — Current VPC status.
-- `bastion_ipv4_address` (String) — Public IPv4 address of the bastion gateway.
-- `bastion_ipv6_address` (String) — Public IPv6 address of the bastion gateway.
+- `bastion_ipv4` (String) — Public IPv4 address of the bastion gateway.
+- `bastion_ipv6` (String) — Public IPv6 address of the bastion gateway.
 - `bastion_enabled` (Boolean) — Whether the bastion is active.
 - `network_loadbalancer_id` (Number) — The network load balancer ID for this VPC.
 - `http_loadbalancer_id` (Number) — The HTTP load balancer ID for this VPC.

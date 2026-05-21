@@ -70,8 +70,8 @@ resource "netactuate_router_vrf_dhcp" "lan_dhcp" {
   - `last_address` (String, required) — Last address in the range.
 - `domain_name_servers` (Block List) — DNS servers pushed to clients. Each block:
   - `address` (String, required) — DNS server IP.
-- `ntp_servers` (Block List) — NTP servers pushed to clients. Each block:
-  - `address` (String, required) — NTP server IP.
+- `ntp_servers` (Block List) — NTP servers pushed to clients (IPv4 addresses only). Each block:
+  - `address` (String, required) — NTP server IPv4 address.
 - `static_routes` (Block List) — Static routes pushed to clients via DHCP option 121. Each block:
   - `network` (String, required) — Destination network in CIDR notation.
   - `next_hop` (String, required) — Next-hop IP for this route.
