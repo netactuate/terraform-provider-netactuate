@@ -28,7 +28,7 @@ var (
 	imageKeys      = []string{"image", "image_id"}
 	billingKeys    = []string{"package_billing_contract_id", "package_billing_opt_in"}
 
-	hostnameRegex = fmt.Sprintf("(%[1]s\\.)*%[1]s$", fmt.Sprintf("(%[1]s|%[1]s%[2]s*%[1]s)", "[a-zA-Z0-9]", "[a-zA-Z0-9\\-]"))
+	hostnameRegex = regexp.MustCompile(fmt.Sprintf("^(%[1]s\\.)*%[1]s$", fmt.Sprintf("(%[1]s|%[1]s%[2]s*%[1]s)", "[a-zA-Z0-9]", "[a-zA-Z0-9\\-]")))
 )
 
 func resourceServer() *schema.Resource {
@@ -45,17 +45,11 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: false,
 				Required: true,
-				ValidateDiagFunc: func(i interface{}, path cty.Path) diag.Diagnostics {
-					var diags diag.Diagnostics
-
-					match, err := regexp.MatchString(hostnameRegex, i.(string))
-					if err != nil {
-						diags = diag.FromErr(err)
-					} else if !match {
-						diags = diag.Errorf("%q is not a valid hostname", i)
+				ValidateDiagFunc: func(i any, path cty.Path) diag.Diagnostics {
+					if !hostnameRegex.MatchString(i.(string)) {
+						return diag.Errorf("%q is not a valid hostname", i)
 					}
-
-					return diags
+					return nil
 				},
 			},
 			"plan": {
