@@ -176,7 +176,7 @@ func dataSourceServerRead(ctx context.Context, d *schema.ResourceData, m interfa
 		setValue("bgp_peers", []map[string]interface{}{bgpPeers}, d, &diags)
 	}
 
-	if diags == nil {
+	if !diags.HasError() {
 		d.SetId(strconv.Itoa(server.ID))
 	}
 
