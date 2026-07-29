@@ -33,27 +33,38 @@ func setLocationPreserveFormat(apiLocation string, d *schema.ResourceData, diags
 	setValue("location", apiLocation, d, diags)
 }
 
-func suppressLocationDiff(k, old, new string, d *schema.ResourceData) bool {
-	if new == "" {
-		return true
+// unchangedLocationID reports whether an existing resource's location_id is
+// known and unchanged, which proves the location itself did not move however
+// differently the API and the configuration spell it.
+func unchangedLocationID(d *schema.ResourceData) bool {
+	if d == nil || d.Id() == "" {
+		return false
 	}
-	return sameLocation(old, new)
+	oldID, newID := d.GetChange("location_id")
+	return oldID.(int) != 0 && oldID == newID
 }
 
-func suppressStorageLocationDiff(k, old, new string, d *schema.ResourceData) bool {
+// suppressLocationDiff suppresses diffs between two spellings of one location.
+// A configuration may pin either the catalog name or the IATA code, since
+// getLocationID accepts both, while the API always reports the display name --
+// and a display name does not always lead with its IATA code. location is
+// ForceNew, so a spelling difference that survives to the plan destroys and
+// recreates the resource.
+func suppressLocationDiff(k, old, new string, d *schema.ResourceData) bool {
 	if new == "" {
 		return true
 	}
 	if sameLocation(old, new) {
 		return true
 	}
-	if d.Id() != "" {
-		oldID, newID := d.GetChange("location_id")
-		if oldID.(int) != 0 && oldID == newID {
-			return true
-		}
-	}
-	return false
+	return unchangedLocationID(d)
+}
+
+// suppressStorageLocationDiff carries the same contract as
+// suppressLocationDiff; storage resources resolve locations through their own
+// catalog (see getStorageLocationID) but spell them the same way.
+func suppressStorageLocationDiff(k, old, new string, d *schema.ResourceData) bool {
+	return suppressLocationDiff(k, old, new, d)
 }
 
 func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
