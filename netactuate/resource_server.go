@@ -55,7 +55,7 @@ func resourceServer() *schema.Resource {
 		UpdateContext: resourceServerUpdate,
 		DeleteContext: resourceServerDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceServerImport,
 		},
 		Schema: map[string]*schema.Schema{
 			"hostname": {
@@ -395,6 +395,49 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 	setServerTagsState(d, c, &diags)
 
 	return diags
+}
+
+// resourceServerImport replaces the former schema.ImportStatePassthroughContext.
+// Read's own tag hydration (setServerTagsState, above) deliberately skips
+// fetching tags unless state already has a tracked value -- correct for an
+// ordinary refresh (see tagsCurrentlyTracked's doc comment), but wrong for
+// import, which always starts from a blank state regardless of whether the
+// live server actually carries tags. So import needs its own real fetch,
+// not a reuse of Read's refresh-oriented gate: this hydrates vpc_id first
+// (serverResourceName needs it to pick the right tag-resource type), then
+// unconditionally reads and sets the server's actual live tags. See
+// findings/server_tags_import_gap.md.
+func resourceServerImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	c := m.(*ProviderClients).V2
+
+	id, err := strconv.Atoi(d.Id())
+	if err != nil {
+		return nil, err
+	}
+
+	server, err := c.GetServer(id)
+	if err != nil {
+		return nil, err
+	}
+	if server.VpcID != nil {
+		if err := d.Set("vpc_id", *server.VpcID); err != nil {
+			return nil, err
+		}
+	}
+
+	tags, err := c.GetResourceTags(serverResourceName(d), id)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(tags))
+	for _, t := range tags {
+		names = append(names, t.Name)
+	}
+	if err := d.Set("tags", tagsCSV(names)); err != nil {
+		return nil, err
+	}
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
