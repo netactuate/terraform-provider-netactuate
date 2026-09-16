@@ -7,6 +7,11 @@ clusters with their add-ons.
 Documentation for every resource and data source is published at
 [registry.terraform.io/providers/netactuate/netactuate](https://registry.terraform.io/providers/netactuate/netactuate/latest/docs).
 
+For the platform itself, see the [NetActuate documentation](https://netactuate.com/docs). The
+[guides](https://netactuate.com/docs/guides) work through complete configurations: VPCs and
+private networking, load balancing, block and object storage, managed Kubernetes, BGP and
+anycast, and secrets.
+
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) 1.0 or later
