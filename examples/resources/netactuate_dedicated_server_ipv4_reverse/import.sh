@@ -1,0 +1,1 @@
+terraform import netactuate_dedicated_server_ipv4_reverse.example 12345

@@ -1,0 +1,1 @@
+terraform import netactuate_cloud_firewall_set_binding.example 12345

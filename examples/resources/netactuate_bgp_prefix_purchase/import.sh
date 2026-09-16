@@ -1,0 +1,1 @@
+terraform import netactuate_bgp_prefix_purchase.example 12345

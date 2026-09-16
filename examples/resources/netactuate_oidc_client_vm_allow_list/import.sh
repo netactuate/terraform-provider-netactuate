@@ -1,0 +1,1 @@
+terraform import netactuate_oidc_client_vm_allow_list.example 12345

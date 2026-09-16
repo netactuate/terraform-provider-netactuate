@@ -1,0 +1,1 @@
+terraform import netactuate_vpc_nameservers.example 12345

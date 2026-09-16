@@ -1,127 +1,140 @@
-# Terraform Provider NetActuate
+# Terraform Provider for NetActuate
 
-## Usage
-Currently in this stage of development -
+Manage NetActuate infrastructure with Terraform: cloud and dedicated compute, VPCs and their
+gateways, load balancers, BGP and anycast, object and block storage, DNS, secrets, and NKE
+clusters with their add-ons.
 
-Basic Steps to test:
+Documentation for every resource and data source is published at
+[registry.terraform.io/providers/netactuate/netactuate](https://registry.terraform.io/providers/netactuate/netactuate/latest/docs).
+
+## Requirements
+
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) 1.0 or later
+- [Go](https://go.dev/doc/install) 1.25 or later, to build the provider from source
+- A NetActuate account and an API key
+
+## Using the provider
+
+```terraform
+terraform {
+  required_providers {
+    netactuate = {
+      source  = "netactuate/netactuate"
+      version = "~> 0.4"
+    }
+  }
+}
+
+provider "netactuate" {}
+
+resource "netactuate_server" "web" {
+  hostname    = "web1.example.com"
+  plan        = "VR1x1x25"
+  location_id = 3
+  image       = "Ubuntu 22.04 LTS x64"
+}
+```
+
+Run `terraform init` to download the provider from the registry.
+
+### Beta surface
+
+The cloud router resources, `netactuate_router` and every resource named `netactuate_router_*`,
+are in beta. Their schema and behaviour may change in a minor release, and some operations
+depend on platform work that is still in progress. The rest of the provider is stable.
+
+## Authentication
+
+The provider reads an API key from the `NETACTUATE_API_KEY` environment variable, so the key
+need not appear in a configuration file:
+
 ```bash
-# Grab the provider:
-git clone git@github.com:netactuate/terraform-provider-netactuate.git
-
-# Install and download all the dependencies and compile all related binaries
-cd terraform-netactuate-provider
-make install-all
-
-# Edit an example: [basic, full, cluster]
-cd examples/basic
-export NETACTUATE_API_KEY="my-api-key"
-edit main.tf
-terraform init
-terraform plan
+export NETACTUATE_API_KEY="your-api-key"
 terraform apply
 ```
 
-### Authentication
-There are the following ways of providing credentials for authentication:
-1. Static credentials
-2. Environment variable
+Set it in the provider block instead when a configuration manages more than one account:
 
-#### Static credentials
-> **_NOTE:_** \
-> Hard-coded credentials are not recommended in any Terraform configuration and risks secret leakage should this file
-> ever be committed to a public version control system.
-
-Static credentials can be provided by adding an `api_key` in-line in the provider block:
 ```terraform
 provider "netactuate" {
-  api_key = "my-api-key"
+  api_key = var.netactuate_api_key
 }
 ```
 
-#### Environment Variables
-You can provide your credentials via the `NETACTUATE_API_KEY` environment variable, representing your NetActuate API Key:
-```terraform
-provider "netactuate" {}
-```
-```bash
-export NETACTUATE_API_KEY="my-api-key"
-terraform apply
-```
-
-## Development
-
-### dev_overrides (recommended)
-
-Terraform's `dev_overrides` mechanism points the CLI directly at a local binary, bypassing the registry entirely. This means no `terraform init` is needed and you never have to delete `.terraform.lock.hcl` after a rebuild.
-
-**1. Create or edit `~/.terraformrc`:**
-
-```hcl
-provider_installation {
-  dev_overrides {
-    "registry.terraform.io/netactuate/netactuate" = "/home/<you>/go/bin"
-  }
-  direct {}
-}
-```
-
-Replace `/home/<you>/go/bin` with the output of:
-
-```bash
-go env GOPATH
-# result: /home/<you>/go  →  append /bin
-```
-
-**2. Build and install the binary:**
-
-```bash
-go build -o $GOPATH/bin/terraform-provider-netactuate .
-```
-
-**3. Run Terraform — skip `terraform init`:**
-
-```bash
-cd examples/pop/01-vm-s3
-terraform plan
-terraform apply
-```
-
-Terraform will print a warning that dev_overrides are active. This is expected and can be ignored.
-
-> **Note:** `direct {}` is required in the `provider_installation` block so that all other providers (e.g. `hashicorp/terraform_data`) are still fetched from the registry normally.
-
-### Local `gona` replace (development only)
-
-For provider development and integration testing in this workspace, `go.mod` includes:
-
-```go
-replace github.com/netactuate/gona => ../gona-modifications
-```
-
-This is intentional for local testing only. Before publishing/releasing the provider, remove that `replace` line so builds consume the upstream `github.com/netactuate/gona` module version.
-
-### Run locally (legacy plugin directory)
-Do the following to run and test the TF provider locally:
-1. Compile and install the TF provider's binaries to the local TF plugins directory:
-    ```bash
-    make install-all
-    ```
-2. Install TF providers for the test [example](examples/basic,full,cluster):
-    ```bash
-    cd example
-    terraform init
-    ```
-   Every time the provider is re-built, `.terraform.lock.hcl` file must be removed and the
-   test example modules re-initialize, because the provider dependency's hash changes
-3. Build the infrastructure:
-    ```bash
-    terraform apply
-    ```
+> **Note**
+> Hard coded credentials are not recommended in any Terraform configuration, and risk secret
+> leakage should the file ever be committed to version control.
 
 ### Custom API URL
-If necessary, you can override the default NetActuate API URL by specifying a custom `api_url` in the provider block:
+
+Override the default endpoint when you need to point at something other than production:
+
 ```terraform
 provider "netactuate" {
   api_url = "https://api.example.com/"
 }
 ```
+
+## Developing the provider
+
+Clone the repository and build:
+
+```bash
+git clone https://github.com/netactuate/terraform-provider-netactuate.git
+cd terraform-provider-netactuate
+go build ./...
+```
+
+Run the unit tests:
+
+```bash
+go test ./...
+```
+
+Acceptance tests create real, billable infrastructure. They run only when `TF_ACC` is set and
+are guarded by a build tag:
+
+```bash
+TF_ACC=1 NETACTUATE_API_KEY="your-api-key" go test -tags acctest ./... -run TestAccNetactuate -v
+```
+
+### Using a locally built binary
+
+Terraform's `dev_overrides` points the CLI at a local binary and skips the registry, so no
+`terraform init` is needed and no lock file has to be deleted after a rebuild.
+
+Add the following to `~/.terraformrc`, replacing the path with `go env GOPATH` plus `/bin`:
+
+```hcl
+provider_installation {
+  dev_overrides {
+    "registry.terraform.io/netactuate/netactuate" = "/home/you/go/bin"
+  }
+  direct {}
+}
+```
+
+Build and install the binary, then run Terraform without initialising:
+
+```bash
+go build -o $(go env GOPATH)/bin/terraform-provider-netactuate .
+cd examples/pop/01-vm-s3
+terraform plan
+```
+
+Terraform prints a warning that dev_overrides are active, which is expected. The `direct {}`
+block keeps every other provider resolving from the registry as normal.
+
+### Generating documentation
+
+The registry documentation under `docs/` is generated from the provider schema, the examples
+under `examples/`, and the templates under `templates/`:
+
+```bash
+go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@latest
+tfplugindocs generate --provider-name netactuate
+```
+
+## License
+
+Mozilla Public License 2.0. See [LICENSE.md](LICENSE.md).

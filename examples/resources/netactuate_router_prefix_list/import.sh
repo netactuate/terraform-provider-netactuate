@@ -1,0 +1,1 @@
+terraform import netactuate_router_prefix_list.example 12345

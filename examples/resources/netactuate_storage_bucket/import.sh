@@ -1,0 +1,1 @@
+terraform import netactuate_storage_bucket.example 12345

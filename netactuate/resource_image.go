@@ -135,6 +135,11 @@ func resourceImageRead(ctx context.Context, d *schema.ResourceData, m interface{
 
 	image, err := c.GetImage(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			log.Printf("[WARN] Image %d not found, removing from state", id)
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -145,6 +150,17 @@ func resourceImageRead(ctx context.Context, d *schema.ResourceData, m interface{
 		setValue("description", *image.Description, d, &diags)
 	} else {
 		setValue("description", "", d, &diags)
+	}
+	// E-02 was meant to hydrate server_id from here, but this NEVER FIRES today: the API
+	// does not return active_build on GET cloud/images or GET cloud/images/{id}, for
+	// public or private images. So server_id cannot be recovered on import and this is a
+	// PLATFORM gap, not a provider bug, in the same class as the router's package_id and
+	// the server's package_billing and params.
+	//
+	// Kept rather than deleted so the correct behaviour is already in place if the API
+	// starts returning the field, but it must not be read as a working fix.
+	if image.ActiveBuild != nil {
+		setValue("server_id", image.ActiveBuild.MbPkgID, d, &diags)
 	}
 	if image.Enabled != nil {
 		setValue("os_enabled", *image.Enabled, d, &diags)
@@ -192,6 +208,10 @@ func resourceImageDelete(ctx context.Context, d *schema.ResourceData, m interfac
 
 	resp, err := c.DeleteImage(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			log.Printf("[WARN] Image %d already deleted", id)
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

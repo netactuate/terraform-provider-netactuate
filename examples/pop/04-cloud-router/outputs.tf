@@ -16,7 +16,7 @@ output "router_status" {
 }
 
 output "default_vrf_id" {
-  description = "Default VRF ID — used to reference this router in other resources"
+  description = "Default VRF ID: used to reference this router in other resources"
   value       = netactuate_router.pop.default_vrf_id
 }
 
@@ -53,7 +53,7 @@ output "loopback_ipv4" {
 # via the router management interface.
 
 output "wireguard_endpoint" {
-  description = "WireGuard endpoint for this router — give this to the edge VM (example 01)"
+  description = "WireGuard endpoint for this router: give this to the edge VM (example 01)"
   value       = "${netactuate_router.pop.ipv4_address}:${var.wireguard_port}"
 }
 
@@ -63,12 +63,12 @@ output "wireguard_interface_id" {
 }
 
 output "wireguard_public_key" {
-  description = "Router's WireGuard public key — use this as the peer public key on the edge VM (example 01)"
+  description = "Router's WireGuard public key: use this as the peer public key on the edge VM (example 01)"
   value       = netactuate_router_vrf_interface.wg.wireguard_public_key
 }
 
 output "wireguard_vm_conf" {
-  description = "Complete /etc/wireguard/wg0.conf for the edge VM (example 01) — fill in PrivateKey then: sudo systemctl enable --now wg-quick@wg0"
+  description = "Complete /etc/wireguard/wg0.conf for the edge VM (example 01): fill in PrivateKey then: sudo systemctl enable --now wg-quick@wg0"
   value       = <<-EOT
     [Interface]
     # PrivateKey = $(sudo cat /etc/wireguard/private.key)
@@ -84,7 +84,7 @@ output "wireguard_vm_conf" {
 }
 
 output "bird_conf" {
-  description = "Complete /etc/bird/bird.conf for the edge VM (example 01) — apply with: sudo birdc configure"
+  description = "Complete /etc/bird/bird.conf for the edge VM (example 01): apply with: sudo birdc configure"
   value       = <<-EOT
     log syslog all;
     router id ${split(":", var.wireguard_remote_endpoint)[0]};
@@ -123,10 +123,10 @@ output "bird_conf" {
 output "connectivity_tests" {
   description = "Commands to verify end-to-end connectivity across all examples"
   value       = <<-EOT
-    # Test VPC load balancer (example 03) — reachable from anywhere:
+    # Test VPC load balancer (example 03): reachable from anywhere:
     curl http://${var.vpc_bastion_ip}
 
-    # Test edge VM HTTP (example 01) — reachable from anywhere:
+    # Test edge VM HTTP (example 01): reachable from anywhere:
     curl http://${split(":", var.wireguard_remote_endpoint)[0]}
 
     # Test router management reachability:

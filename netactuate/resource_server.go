@@ -24,14 +24,30 @@ const (
 
 var (
 	credentialKeys = []string{"password", "ssh_key_id", "ssh_key"}
-	locationKeys   = []string{"location", "location_id"}
-	imageKeys      = []string{"image", "image_id"}
 	billingKeys    = []string{"package_billing_contract_id", "package_billing_opt_in"}
 
-	hostnameRegex = fmt.Sprintf("(%[1]s\\.)*%[1]s$", fmt.Sprintf("(%[1]s|%[1]s%[2]s*%[1]s)", "[a-zA-Z0-9]", "[a-zA-Z0-9\\-]"))
+	hostnameRegex = regexp.MustCompile(fmt.Sprintf("^(%[1]s\\.)*%[1]s$", fmt.Sprintf("(%[1]s|%[1]s%[2]s*%[1]s)", "[a-zA-Z0-9]", "[a-zA-Z0-9\\-]")))
+
+	// serverLocationPair/serverImagePair replace the old locationKeys/
+	// imageKeys ExactlyOneOf pairs plus their bespoke suppress*Diff/
+	// unchanged*ID/get* helpers -- see catalogref.go.
+	serverLocationPair = CatalogRef{
+		NameField:     "location",
+		IDField:       "location_id",
+		NameStateFunc: func(val interface{}) string { return strings.ToUpper(val.(string)) },
+		SameName:      sameLocation, // reuse helper.go's existing IATA-aware matcher
+	}
+	serverImagePair = CatalogRef{
+		NameField: "image",
+		IDField:   "image_id",
+		// SameName nil -> strings.EqualFold, matching the old suppressImageDiff behavior
+	}
 )
 
 func resourceServer() *schema.Resource {
+	locationSchema, locationIDSchema := serverLocationPair.Schemas()
+	imageSchema, imageIDSchema := serverImagePair.Schemas()
+
 	return &schema.Resource{
 		CreateContext: resourceServerCreate,
 		ReadContext:   resourceServerRead,
@@ -46,16 +62,10 @@ func resourceServer() *schema.Resource {
 				ForceNew: false,
 				Required: true,
 				ValidateDiagFunc: func(i interface{}, path cty.Path) diag.Diagnostics {
-					var diags diag.Diagnostics
-
-					match, err := regexp.MatchString(hostnameRegex, i.(string))
-					if err != nil {
-						diags = diag.FromErr(err)
-					} else if !match {
-						diags = diag.Errorf("%q is not a valid hostname", i)
+					if !hostnameRegex.MatchString(i.(string)) {
+						return diag.Errorf("%q is not a valid hostname", i)
 					}
-
-					return diags
+					return nil
 				},
 			},
 			"plan": {
@@ -70,10 +80,11 @@ func resourceServer() *schema.Resource {
 				Description: "Single opt-in for disruptive scaling. Defaults to false: in-place upgrades that need no reboot happen automatically, but any scale that DOWNSIZES (reduces mem/cpu/disk) or otherwise requires a REBOOT is rejected during terraform apply before the scale API call instead of silently downsizing/rebooting a running server (a downsize always reboots on this platform). Set true to permit downsize+reboot. This guards against an out-of-band portal scale-up being silently reverted.",
 			},
 			"package_billing": {
-				Type:     schema.TypeString,
-				ForceNew: false,
-				Optional: true,
-				Default:  "usage",
+				Type:        schema.TypeString,
+				ForceNew:    false,
+				Optional:    true,
+				Default:     "usage",
+				Description: "Not recoverable on import: the API's server-read endpoint has no field reflecting the current billing mode, so this stays at its default (\"usage\") after `terraform import` regardless of the live server's actual billing configuration.",
 			},
 			"package_billing_opt_in": {
 				Type:         schema.TypeString,
@@ -99,53 +110,31 @@ func resourceServer() *schema.Resource {
 				ForceNew:    true,
 				Description: "VPC ID to deploy the server into",
 			},
-			"location": {
-				Type:         schema.TypeString,
-				ForceNew:     false,
-				Optional:     true,
-				ExactlyOneOf: locationKeys,
-				StateFunc: func(val any) string {
-					return strings.ToUpper(val.(string))
-				},
-				DiffSuppressFunc: suppressLocationDiff,
-			},
-			"location_id": {
-				Type:         schema.TypeInt,
-				ForceNew:     false,
-				Optional:     true,
-				ExactlyOneOf: locationKeys,
-				Computed:     true,
-			},
-			"image": {
-				Type:         schema.TypeString,
-				ForceNew:     false,
-				Optional:     true,
-				ExactlyOneOf: imageKeys,
-			},
-			"image_id": {
-				Type:         schema.TypeInt,
-				ForceNew:     false,
-				Optional:     true,
-				ExactlyOneOf: imageKeys,
-			},
+			"location":    locationSchema,
+			"location_id": locationIDSchema,
+			"image":       imageSchema,
+			"image_id":    imageIDSchema,
 			"password": {
 				Type:         schema.TypeString,
 				ForceNew:     false,
 				Sensitive:    true,
 				Optional:     true,
 				ExactlyOneOf: credentialKeys,
+				Description:  "Not recoverable on import: the API has no endpoint that returns which credential was used to build a server, so this stays unset after `terraform import` regardless of the live server's actual configuration. Set it explicitly after import if you intend Terraform to manage it.",
 			},
 			"ssh_key_id": {
 				Type:         schema.TypeInt,
 				ForceNew:     false,
 				Optional:     true,
 				ExactlyOneOf: credentialKeys,
+				Description:  "Not recoverable on import: the API has no endpoint that returns which SSH key is associated with a server, so this stays unset after `terraform import` regardless of the live server's actual configuration. Set it explicitly after import if you intend Terraform to manage it.",
 			},
 			"ssh_key": {
 				Type:         schema.TypeString,
 				ForceNew:     false,
 				Optional:     true,
 				ExactlyOneOf: credentialKeys,
+				Description:  "Not recoverable on import: the API has no endpoint that returns which credential was used to build a server, so this stays unset after `terraform import` regardless of the live server's actual configuration. Set it explicitly after import if you intend Terraform to manage it.",
 			},
 			"cloud_config": {
 				Type:     schema.TypeString,
@@ -214,11 +203,21 @@ func resourceServer() *schema.Resource {
 				}
 				return nil
 			},
+			// "image"/"location" use CatalogRef.NameReallyChanged instead of a
+			// raw d.HasChange: CustomizeDiff runs before each field's own
+			// DiffSuppressFunc is applied, so a raw HasChange fires even on a
+			// purely cosmetic spelling difference (case, IATA vs full name)
+			// that suppressNameDiff will suppress in the final plan -- but by
+			// then this ComputedIf's "mark it unknown" side effect has
+			// already been locked in, showing primary_ipv4/6 as "known after
+			// apply" even though nothing will actually change. location_id/
+			// image_id/hostname have no DiffSuppressFunc, so raw HasChange is
+			// already accurate for them.
 			customdiff.ComputedIf("primary_ipv4", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
-				return d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname")
+				return d.HasChange("location_id") || serverImagePair.NameReallyChanged(d) || d.HasChange("image_id") || d.HasChange("hostname")
 			}),
 			customdiff.ComputedIf("primary_ipv6", func(_ context.Context, d *schema.ResourceDiff, meta interface{}) bool {
-				return d.HasChange("location_id") || d.HasChange("image") || d.HasChange("image_id") || d.HasChange("hostname")
+				return d.HasChange("location_id") || serverImagePair.NameReallyChanged(d) || d.HasChange("image_id") || d.HasChange("hostname")
 			}),
 		),
 	}
@@ -228,7 +227,7 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	c := m.(*ProviderClients).V2
 
 	locationId, imageId, diags := getParams(d, c)
-	if diags != nil {
+	if diags.HasError() {
 		return diags
 	}
 	diags = diag.Diagnostics{}
@@ -292,8 +291,8 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	d.SetId(strconv.Itoa(s.ServerID))
 	d.Set("params", req.Params) // Store params in the state file
 
-	if _, err := wait4Status(s.ServerID, "RUNNING", c); err != nil {
-		return err
+	if _, diags := wait4Status(s.ServerID, "RUNNING", c); diags.HasError() {
+		return diags
 	}
 
 	server, err := c.GetServer(s.ServerID)
@@ -312,6 +311,47 @@ func resourceServerCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	return resourceServerRead(ctx, d, m)
 }
 
+// hydrateServerBillingFields fixes an import gap: resourceServerRead never
+// read package_billing_contract_id back from the API at all. gona.Server's
+// response DOES carry the underlying value, but under the API's actual
+// response field name, "contract_id" -- gona.Server was tagged
+// `json:"package_billing_contract_id"`, a field the live response never
+// actually has (confirmed against the raw API response: its real billing
+// field is "contract_id", found by inspecting cloud/server?mbpkgid=...
+// directly), so PackageBillingContractId silently unmarshaled to "" every
+// time regardless of what the provider did with it. Fixed in gona itself
+// (servers.go) alongside this. Without either fix, a server imported via
+// schema.ImportStatePassthroughContext (which only sets the ID and calls
+// Read) left package_billing_contract_id null forever, and a subsequent
+// apply would silently accept whatever config said into state without ever
+// calling any API for it (it is not in resourceServerUpdate's
+// fieldsToRebuild, and the generic update path makes no call for it).
+//
+// package_billing (usage vs. package billing mode) has NO live counterpart
+// in this response at all -- confirmed by listing every key the endpoint
+// actually returns, no "billing"-related key exists besides contract_id.
+// Deliberately NOT hydrated: there is nothing true to hydrate it from, and
+// writing a fabricated value would be worse than leaving the known gap
+// visible. See findings/server_import_gaps.md.
+//
+// allow_downsize_reboot has no live API concept at all either -- it's a
+// pure local policy gate -- but unlike package_billing its Go zero value
+// (false) already matches its schema default, and d.Get returns that zero
+// value whether or not the underlying map has an entry, so its import gap
+// is cosmetic (a one-time harmless diff), not functional. Left untouched.
+func hydrateServerBillingFields(d *schema.ResourceData, server gona.Server, diags *diag.Diagnostics) {
+	// gona.Server.PackageBillingContractId is an int (the API's "contract_id"
+	// is a JSON number), but the Terraform schema field is a string (the
+	// create/build request sends it as a string url param, a separate,
+	// asymmetric write-side convention) -- convert, and treat 0 (no contract,
+	// e.g. an opt_in-billed server) as "" rather than the literal string "0".
+	contractID := ""
+	if server.PackageBillingContractId != 0 {
+		contractID = strconv.Itoa(server.PackageBillingContractId)
+	}
+	setValue("package_billing_contract_id", contractID, d, diags)
+}
+
 func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V2
 
@@ -322,6 +362,12 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	server, err := c.GetServer(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			// Deleted out of band. Drop it from state so a plan can recreate it,
+			// rather than erroring forever or hydrating zeros over real state.
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -329,28 +375,17 @@ func resourceServerRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	if server.Installed == 0 {
 		setValue("hostname", "", d, &diags)
-		updateValue("image_id", 0, d, &diags)
-		updateValue("image", "", d, &diags)
+		serverImagePair.Hydrate(d, 0, "", &diags)
 	} else {
 		setValue("hostname", server.Name, d, &diags)
-		updateValue("image_id", server.OSID, d, &diags)
-		updateValue("image", server.OS, d, &diags)
+		serverImagePair.Hydrate(d, server.OSID, server.OS, &diags)
 	}
 	setValue("plan", server.Package, d, &diags)
-	updateValue("location_id", server.LocationID, d, &diags)
-	setLocationPreserveFormat(server.Location, d, &diags)
+	serverLocationPair.Hydrate(d, server.LocationID, server.Location, &diags)
+	hydrateServerBillingFields(d, server, &diags)
+	setIntPtr("cloud_pool_id", server.CloudPoolID, d, &diags)
+	setIntPtr("vpc_id", server.VpcID, d, &diags)
 
-	_, exists_location_id := d.GetOk("location_id")
-	_, exists_location := d.GetOk("location")
-	if !exists_location_id && !exists_location {
-		setValue("location", server.Location, d, &diags)
-	}
-
-	_, exists_image_id := d.GetOk("image_id")
-	_, exists_image := d.GetOk("image")
-	if !exists_image_id && !exists_image {
-		setValue("image", server.OS, d, &diags)
-	}
 	setValue("primary_ipv4", server.PrimaryIPv4, d, &diags)
 	setValue("primary_ipv6", server.PrimaryIPv6, d, &diags)
 	setValue("vpc_reserved_network", server.VpcReservedNetwork, d, &diags)
@@ -437,8 +472,8 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		log.Printf("[DEBUG] Scale job %d completed, waiting for server to be RUNNING", jobID)
 
-		if _, err := wait4Status(id, "RUNNING", c); err != nil {
-			return err
+		if _, diags := wait4Status(id, "RUNNING", c); diags.HasError() {
+			return diags
 		}
 
 		if td := reconcileServerTags(d, c); td.HasError() {
@@ -480,11 +515,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			oldLoc := oldLoc_r.(string)
 			setValue("location_id", 0, d, &diag.Diagnostics{})
 			if oldLoc != "" {
-				var diags diag.Diagnostics
 				unlinkRequired = true
-				if len(diags) > 0 {
-					return diags
-				}
 				if unlinkRequired {
 					err = c.UnlinkServer(id)
 					if err != nil {
@@ -511,7 +542,7 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		// Get correct build params
 		locationId, imageId, diags := getParams(d, c)
-		if diags != nil {
+		if diags.HasError() {
 			return diags
 		}
 		req := &gona.BuildServerRequest{
@@ -554,8 +585,8 @@ func resourceServerUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			d.Set("params", req.Params)
 		}
 
-		if _, err := wait4Status(id, "RUNNING", c); err != nil {
-			return err
+		if _, diags := wait4Status(id, "RUNNING", c); diags.HasError() {
+			return diags
 		}
 	}
 
@@ -575,7 +606,7 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 	log.Printf("[DEBUG] Deleting server with ID: %d", id)
 
-	// Retry delete — the API rejects requests when there are active utility
+	// Retry delete - the API rejects requests when there are active utility
 	// queues (e.g. a build or other operation still in progress).
 	const deleteRetries = 10
 	const deleteInterval = 20 * time.Second
@@ -584,6 +615,14 @@ func resourceServerDelete(ctx context.Context, d *schema.ResourceData, m interfa
 		jobID, err = c.DeleteServer(id, true)
 		if err == nil {
 			break
+		}
+		if gona.IsNotFound(err) {
+			// The server is already gone, which is the goal of a delete. Retrying a
+			// not-found nine more times at 20 second intervals turns a success into a
+			// three minute wait and then a hard error for a server deleted out of band.
+			log.Printf("[DEBUG] Server %d is already gone, treating delete as done", id)
+			d.SetId("")
+			return nil
 		}
 		log.Printf("[DEBUG] Delete attempt %d/%d for server %d failed: %s", i+1, deleteRetries, id, err)
 		if i == deleteRetries-1 {
@@ -661,64 +700,25 @@ func wait4JobStatus(command string, jobID int, client *gona.Client) diag.Diagnos
 	return diag.Errorf("timeout waiting for job %s #%d to complete", command, jobID)
 }
 
+// getParams resolves the server's location and image config (whichever form
+// -- name or id -- is set) into concrete API ids, via the shared CatalogRef
+// abstraction (catalogref.go). Replaces this file's own former getLocation/
+// getImageByName, which independently duplicated helper.go's getLocationID
+// with a subtly different (narrower, no-IATA-code, first-token-only)
+// matching rule; CatalogRef's resolveCatalogEntry is now the single matching
+// rule shared by every name/id pair in the provider.
 func getParams(d *schema.ResourceData, client *gona.Client) (int, int, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	locationId, ld := getLocation(d, client)
+
+	locationId, ld := serverLocationPair.Resolve(d, func() ([]CatalogEntry, error) { return locationCatalog(client) })
 	if ld != nil {
 		diags = append(diags, *ld)
 	}
-	imageId, exists := d.GetOk("image_id")
-	if !exists {
-		image, d := getImageByName(d.Get("image").(string), client)
-		if d != nil {
-			diags = append(diags, *d)
-		} else {
-			imageId = image.ID
-		}
+
+	imageId, id := serverImagePair.Resolve(d, func() ([]CatalogEntry, error) { return imageCatalog(client) })
+	if id != nil {
+		diags = append(diags, *id)
 	}
 
-	return locationId, imageId.(int), diags
-}
-
-func getLocation(d *schema.ResourceData, client *gona.Client) (int, *diag.Diagnostic) {
-	locationId, exists := d.GetOk("location_id")
-	if exists {
-		return locationId.(int), nil
-	}
-
-	requestLocation := d.Get("location").(string)
-	if requestLocation == "" {
-		return 0, &diag.Errorf("Please provide a location or location_id")[0]
-	}
-
-	locations, err := client.GetLocations()
-	if err != nil {
-		return 0, &diag.FromErr(err)[0]
-	}
-
-	for _, location := range locations {
-		if location.Name == requestLocation {
-			return location.ID, nil
-		}
-		if strings.EqualFold(strings.Fields(location.Name)[0], strings.Fields(requestLocation)[0]) {
-			return location.ID, nil
-		}
-	}
-
-	return 0, &diag.Errorf("Provided location %q doesn't exist", requestLocation)[0]
-}
-
-func getImageByName(name string, client *gona.Client) (*gona.OS, *diag.Diagnostic) {
-	oss, err := client.GetOSs()
-	if err != nil {
-		return nil, &diag.FromErr(err)[0]
-	}
-
-	for _, os := range oss {
-		if os.Os == name {
-			return &os, nil
-		}
-	}
-
-	return nil, &diag.Errorf("Provided image %q doesn't exist", name)[0]
+	return locationId, imageId, diags
 }

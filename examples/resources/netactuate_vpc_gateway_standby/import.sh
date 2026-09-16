@@ -1,0 +1,1 @@
+terraform import netactuate_vpc_gateway_standby.example 12345

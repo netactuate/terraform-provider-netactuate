@@ -14,6 +14,7 @@ import (
 
 func resourceRouterVRFTunnel() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a GRE tunnel in a cloud router VRF.",
 		CreateContext: resourceRouterVRFTunnelCreate,
 		ReadContext:   resourceRouterVRFTunnelRead,
 		UpdateContext: resourceRouterVRFTunnelUpdate,

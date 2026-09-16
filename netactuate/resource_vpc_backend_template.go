@@ -157,6 +157,10 @@ func resourceVPCBackendTemplateUpdate(ctx context.Context, d *schema.ResourceDat
 	req := &gona.ReplaceVPCBackendTemplateRequest{
 		Name:        d.Get("name").(string),
 		Description: d.Get("description").(string),
+		// BackendHosts has no omitempty, so a nil slice marshals to null and the API refuses
+		// it. An empty non-nil slice expresses "no hosts" as [], which the API accepts, and
+		// lets the append loop below work unchanged.
+		BackendHosts: []gona.VPCBackend{},
 	}
 
 	if v, ok := d.GetOk("backend_host"); ok {

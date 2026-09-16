@@ -14,6 +14,7 @@ import (
 
 func resourceRouterVRFInterface() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages an interface in a cloud router VRF. An ethernet interface needs a hardware id issued by NetActuate support.",
 		CreateContext: resourceRouterVRFInterfaceCreate,
 		ReadContext:   resourceRouterVRFInterfaceRead,
 		UpdateContext: resourceRouterVRFInterfaceUpdate,
@@ -63,7 +64,7 @@ func resourceRouterVRFInterface() *schema.Resource {
 			"ipv4_cidr": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "An IPv4 address to apply to the interface in CIDR notation (e.g., 178.253.0.1/16).",
+				Description: "An IPv4 address to apply to the interface in CIDR notation (e.g., 192.0.2.1/24).",
 			},
 			"ipv6_cidr": {
 				Type:        schema.TypeString,
@@ -107,7 +108,13 @@ func resourceRouterVRFInterfaceCreate(ctx context.Context, d *schema.ResourceDat
 		Type:        interfaceType,
 		Name:        name,
 		Description: &description,
-		EthernetHardwareID: &ethernetHardwareID,
+	}
+
+	// Only an ethernet interface carries a hardware id. A non-nil pointer to an empty string is
+	// not dropped by omitempty, so assigning it unconditionally put "ethernetHardwareId": "" on
+	// every dummy, loopback and wireguard create, and the platform rejected the set.
+	if ethernetHardwareID != "" {
+		createRequest.EthernetHardwareID = &ethernetHardwareID
 	}
 
 	if v, ok := d.GetOk("ipv4_cidr"); ok {
@@ -192,7 +199,10 @@ func resourceRouterVRFInterfaceUpdate(ctx context.Context, d *schema.ResourceDat
 		Type:        interfaceType,
 		Name:        name,
 		Description: &description,
-        EthernetHardwareID: &ethernetHardwareID,
+	}
+
+	if ethernetHardwareID != "" {
+		updateRequest.EthernetHardwareID = &ethernetHardwareID
 	}
 
 	if v, ok := d.GetOk("ipv4_cidr"); ok {

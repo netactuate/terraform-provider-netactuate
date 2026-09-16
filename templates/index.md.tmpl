@@ -1,0 +1,36 @@
+---
+page_title: "netactuate Provider"
+subcategory: ""
+description: |-
+  Manage NetActuate compute, networking, storage and Kubernetes infrastructure.
+---
+
+# netactuate Provider
+
+Manage NetActuate infrastructure with Terraform: cloud and dedicated compute, VPCs and their
+gateways, load balancers, BGP and anycast, object and block storage, DNS, secrets, and NKE
+clusters with their add-ons.
+
+## Authentication
+
+The provider reads an API key from the `NETACTUATE_API_KEY` environment variable, so the key
+need not appear in a configuration file. Generate one in the portal under your account's API
+settings.
+
+```shell
+export NETACTUATE_API_KEY="..."
+```
+
+Set it in the provider block instead when a configuration manages more than one account.
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+## Beta surface
+
+The cloud router resources, every resource named `netactuate_router_*` along with
+`netactuate_router`, are in beta. Their schema and behaviour may change in a minor release, and
+some operations depend on platform work still in progress. The rest of the provider is stable.
+
+{{ .SchemaMarkdown | trimspace }}

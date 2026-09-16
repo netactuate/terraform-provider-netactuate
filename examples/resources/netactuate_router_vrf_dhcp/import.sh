@@ -1,0 +1,1 @@
+terraform import netactuate_router_vrf_dhcp.example 12345

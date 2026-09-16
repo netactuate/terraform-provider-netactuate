@@ -1,0 +1,1 @@
+terraform import netactuate_ssl_certificate.example 12345

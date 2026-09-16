@@ -34,16 +34,10 @@ func resourceMetal() *schema.Resource {
 				ForceNew: false,
 				Required: true,
 				ValidateDiagFunc: func(i interface{}, path cty.Path) diag.Diagnostics {
-					var diags diag.Diagnostics
-
-					match, err := regexp.MatchString(hostnameRegex, i.(string))
-					if err != nil {
-						diags = diag.FromErr(err)
-					} else if !match {
-						diags = diag.Errorf("%q is not a valid hostname", i)
+					if !hostnameRegex.MatchString(i.(string)) {
+						return diag.Errorf("%q is not a valid hostname", i)
 					}
-
-					return diags
+					return nil
 				},
 			},
 			"location": {
@@ -272,7 +266,15 @@ func resourceMetalRead(ctx context.Context, d *schema.ResourceData, m interface{
 			d.Set("primary_ipv6", "")
 		}
 	}
-	d.Set("location", metal.DatacenterID)
+	// location is the string an operator configures with an IATA code, so the numeric
+	// datacenter id must not be written into it: state would hold "3" where the config says
+	// "LAX", HasChange("location") would fire, and the CustomizeDiff gate below would act on
+	// a change that never happened.
+	//
+	// The id belongs in location_id, which was never set at all. The configured string is
+	// left alone: there is no id to IATA lookup here, and preserving what the operator
+	// wrote is both correct and the same rule setLocationPreserveFormat applies elsewhere.
+	d.Set("location_id", metal.DatacenterID)
 	d.Set("device_id", metal.ID)
 
 	return diags
@@ -345,9 +347,11 @@ func resourceMetalDelete(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	if _, err := c.CancelPackage(req); err != nil {
+		log.Printf("[ERROR] Dedicated server %d cancellation failed: %s", id, err)
 		return diag.FromErr(err)
 	}
 
+	log.Printf("[INFO] Dedicated server %d cancellation succeeded", id)
 	d.SetId("")
 	return nil
 }

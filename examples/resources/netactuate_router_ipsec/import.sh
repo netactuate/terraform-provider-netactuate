@@ -1,0 +1,1 @@
+terraform import netactuate_router_ipsec.example 12345

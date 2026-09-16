@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"github.com/netactuate/gona/gona"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -66,6 +67,14 @@ func resourceFirewallSetRead(ctx context.Context, d *schema.ResourceData, m inte
 
 	set, err := c.GetFirewallSet(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			// The set was deleted out of band. vAPI2 reports that as a 422 on the
+			// firewall_set_id field rather than a 404, which the SDK now maps to a
+			// NotFoundError. Without this the resource hard errors on every refresh and
+			// the only way out is terraform state rm on a security resource.
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

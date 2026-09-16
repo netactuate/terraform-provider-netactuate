@@ -5,11 +5,43 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/netactuate/gona/gona"
 )
+
+var locationCatalogCache = struct {
+	sync.RWMutex
+	index map[string]int
+}{}
+
+func setCachedLocationCatalog(locations []gona.Location) {
+	index := make(map[string]int, len(locations)*2)
+	for _, loc := range locations {
+		if loc.Name != "" {
+			index[strings.ToLower(loc.Name)] = loc.ID
+		}
+		if loc.IATACode != "" {
+			index[strings.ToLower(loc.IATACode)] = loc.ID
+		}
+	}
+
+	locationCatalogCache.Lock()
+	locationCatalogCache.index = index
+	locationCatalogCache.Unlock()
+}
+
+func resolveCachedLocationID(location string) (int, bool) {
+	locationCatalogCache.RLock()
+	defer locationCatalogCache.RUnlock()
+	if len(locationCatalogCache.index) == 0 {
+		return 0, false
+	}
+	id, ok := locationCatalogCache.index[strings.ToLower(location)]
+	return id, ok
+}
 
 func locationIATA(location string) string {
 	parts := strings.Fields(location)
@@ -27,34 +59,63 @@ func sameLocation(a, b string) bool {
 func setLocationPreserveFormat(apiLocation string, d *schema.ResourceData, diags *diag.Diagnostics) {
 	current := d.Get("location").(string)
 	if current != "" && sameLocation(current, apiLocation) {
-		// same location — keep the user's format in state
+		// same location - keep the user's format in state
 		return
 	}
 	setValue("location", apiLocation, d, diags)
 }
 
-func suppressLocationDiff(k, old, new string, d *schema.ResourceData) bool {
-	if new == "" {
-		return true
+// unchangedLocationID reports whether the configured location resolves to the
+// existing resource's current location_id.
+func unchangedLocationID(configuredLocation string, d *schema.ResourceData) bool {
+	if d == nil || d.Id() == "" {
+		return false
 	}
-	return sameLocation(old, new)
+	oldID, _ := d.GetChange("location_id")
+	currentID := oldID.(int)
+	if currentID == 0 {
+		return false
+	}
+
+	if configuredID, ok := resolveCachedLocationID(configuredLocation); ok {
+		return configuredID == currentID
+	}
+
+	// Deliberate fallback: without a cached catalog answer, suppress like the
+	// old unchanged location_id behavior. Failing to suppress can replace live
+	// infrastructure, while suppressing wrongly leaves the resource visibly in
+	// its existing location.
+	return true
 }
 
-func suppressStorageLocationDiff(k, old, new string, d *schema.ResourceData) bool {
+// suppressLocationDiff suppresses diffs between two spellings of one location.
+// A configuration may pin either the catalog name or the IATA code, since
+// getLocationID accepts both, while the API always reports the display name --
+// and a display name does not always lead with its IATA code. location is
+// ForceNew, so a spelling difference that survives to the plan destroys and
+// recreates the resource.
+func suppressLocationDiff(k, old, new string, d *schema.ResourceData) bool {
 	if new == "" {
 		return true
 	}
 	if sameLocation(old, new) {
 		return true
 	}
-	if d.Id() != "" {
-		oldID, newID := d.GetChange("location_id")
-		if oldID.(int) != 0 && oldID == newID {
-			return true
-		}
-	}
-	return false
+	return unchangedLocationID(new, d)
 }
+
+// suppressStorageLocationDiff carries the same contract as
+// suppressLocationDiff; storage resources resolve locations through their own
+// catalog (see getStorageLocationID) but spell them the same way.
+func suppressStorageLocationDiff(k, old, new string, d *schema.ResourceData) bool {
+	return suppressLocationDiff(k, old, new, d)
+}
+
+// unchangedImageID/suppressImageDiff were netactuate_server's own image/
+// image_id guard, superseded by CatalogRef (catalogref.go), which server now
+// uses via serverImagePair -- CatalogRef.suppressNameDiff generalizes this
+// exact logic (and CatalogRef.Hydrate fixes the hydration gap that defeated
+// suppressImageDiff's unchangedImageID fallback in practice).
 
 func setValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
 	err := d.Set(key, value)
@@ -69,11 +130,18 @@ func setIntPtr(key string, val *int, d *schema.ResourceData, diags *diag.Diagnos
 	}
 }
 
-func updateValue(key string, value interface{}, d *schema.ResourceData, diags *diag.Diagnostics) {
-	_, exists := d.GetOk(key)
-	if exists {
-		setValue(key, value, d, diags)
+func nullableString(val *string) interface{} {
+	if val == nil {
+		return nil
 	}
+	return *val
+}
+
+func nullableInt(val *int) interface{} {
+	if val == nil {
+		return nil
+	}
+	return *val
 }
 
 func getLocationID(d *schema.ResourceData, c *gona.Client) (int, *diag.Diagnostic) {
@@ -180,8 +248,8 @@ func parsePlanSpec(name string) (planSpec, bool) {
 // planChangeKind classifies a plan change from old (live) to new (config):
 //   - "same":      identical name or identical mem/cpu/disk
 //   - "upgrade":    every dimension >= and at least one >
-//   - "downgrade":  ANY dimension decreases (a shrink in mem/cpu/disk — disk
-//     especially — is destructive/reboot-prone, so a mixed change counts here)
+//   - "downgrade":  ANY dimension decreases (a shrink in mem/cpu/disk - disk
+//     especially - is destructive/reboot-prone, so a mixed change counts here)
 //   - "unknown":    a non-VR plan name on either side (cannot prove it's an upgrade)
 func planChangeKind(oldName, newName string) string {
 	if strings.EqualFold(strings.TrimSpace(oldName), strings.TrimSpace(newName)) {
@@ -201,7 +269,7 @@ func planChangeKind(oldName, newName string) string {
 	return "upgrade"
 }
 
-// NetActuate tag resource-type tokens (observed from the live tag API).
+// NetActuate tag resource-type tokens returned by the tag API.
 const (
 	resourceNameVirtualServer    = "virtual-server"
 	resourceNameVirtualServerVPC = "virtual-server-vpc"
@@ -227,7 +295,7 @@ func getOrCreateTagIDByName(name string, c *gona.Client) (int, *diag.Diagnostic)
 		return id, nil
 	}
 
-	// Not found — create it (name only; the API assigns default icon/color).
+	// Not found - create it (name only; the API assigns default icon/color).
 	created, cerr := c.CreateTag(&gona.CreateTagRequest{Name: name})
 	if cerr != nil {
 		dd := diag.FromErr(cerr)[0]
@@ -237,7 +305,7 @@ func getOrCreateTagIDByName(name string, c *gona.Client) (int, *diag.Diagnostic)
 		return created.ID, nil
 	}
 
-	// Create response carried no id, or a concurrent create won the race —
+	// Create response carried no id, or a concurrent create won the race -
 	// re-resolve by name.
 	if id, found, dg := findTagIDByName(name, c); dg != nil {
 		return 0, dg
@@ -296,16 +364,59 @@ func suppressTagsDiff(k, old, new string, d *schema.ResourceData) bool {
 	return tagsStateFunc(old) == tagsStateFunc(new)
 }
 
-func serverTagsConfigured(d *schema.ResourceData) bool {
-	_, ok := d.GetOkExists("tags")
-	return ok
+// tagsConfiguredInRequest reports whether the CURRENT apply's raw config
+// actually declares tags, via GetRawConfig rather than the deprecated
+// d.GetOkExists. GetOkExists reads through the merged
+// state/config/diff/set stack and can't distinguish "explicitly configured
+// as an empty string" from "omitted, therefore diffed down to the schema's
+// zero value": once a diff exists for tags (e.g. because it was configured
+// before and the config line was removed), GetOkExists reports exists=true
+// regardless, which broke the "unmanaged when omitted" contract below --
+// confirmed live: removing tags after it was set deleted every live tag
+// instead of leaving them alone. GetRawConfig reflects the actual submitted
+// HCL, so an omitted attribute is a true cty null here, not a schema
+// zero-value in disguise.
+//
+// Used only where a real diff/RawConfig is guaranteed to be attached:
+// Create/Update (reconcileServerTags, deciding the desired tag set to
+// enforce). Do NOT use this during Read/refresh -- see tagsCurrentlyTracked.
+func tagsConfiguredInRequest(d *schema.ResourceData) bool {
+	raw := d.GetRawConfig()
+	if raw.IsNull() || !raw.IsKnown() || !raw.Type().HasAttribute("tags") {
+		return false
+	}
+	return !raw.GetAttr("tags").IsNull()
+}
+
+// tagsCurrentlyTracked reports whether tags is being managed as of the last
+// known state -- the signal setServerTagsState (Read) needs, since a plain
+// refresh (terraform plan's refresh step, or `terraform refresh`) never has
+// a new config/diff to consult at all: confirmed against the vendored SDK's
+// ReadResource handler (helper/schema/grpc_provider.go), which builds the
+// ResourceData from prior state only and attaches no RawConfig, so
+// GetRawConfig() always returns a NullVal there regardless of what the
+// user's config says. Using tagsConfiguredInRequest here would make Read
+// treat tags as unmanaged on every refresh, unconditionally -- confirmed
+// live: an out-of-band (portal) tag added while tags was genuinely
+// configured and unchanged went completely undetected by `terraform plan`
+// ("No changes"), because Read stopped refreshing state's tags from live
+// reality at all. A non-empty persisted tags value means tags was
+// configured as of the last apply, so keep syncing it with live reality so
+// a later plan can compare the refreshed value against whatever the new
+// config says (including catching tags having been removed from config
+// since). This can't distinguish "genuinely never managed" from "managed
+// but explicitly emptied," an acceptable narrow tradeoff for the refresh
+// path only -- actual enforcement (reconcileServerTags, via
+// tagsConfiguredInRequest) is unaffected and stays precise.
+func tagsCurrentlyTracked(d *schema.ResourceData) bool {
+	return d.Get("tags").(string) != ""
 }
 
 // serverDesiredTagNames returns the configured tag names and whether tags are
 // managed. They are unmanaged only when tags is omitted. If tags is configured,
 // even as an empty string, Terraform forces the portal/API tag set to match it.
 func serverDesiredTagNames(d *schema.ResourceData) ([]string, bool) {
-	if !serverTagsConfigured(d) {
+	if !tagsConfiguredInRequest(d) {
 		return nil, false
 	}
 	return splitTags(d.Get("tags").(string)), true
@@ -313,7 +424,7 @@ func serverDesiredTagNames(d *schema.ResourceData) ([]string, bool) {
 
 // reconcileServerTags makes the server's tag set match tags (authoritative)
 // when tags are managed; it is a no-op otherwise. Safe to call on every
-// create/update — it also re-applies tags after a rebuild wipes them.
+// create/update - it also re-applies tags after a rebuild wipes them.
 func reconcileServerTags(d *schema.ResourceData, c *gona.Client) diag.Diagnostics {
 	desired, managed := serverDesiredTagNames(d)
 	if !managed {
@@ -361,11 +472,13 @@ func reconcileServerTags(d *schema.ResourceData, c *gona.Client) diag.Diagnostic
 	return nil
 }
 
-// setServerTagsState writes tags back from the API, but only when tags is
-// already managed. When unmanaged it leaves tag state null so portal tags do
-// not create a perpetual diff.
+// setServerTagsState writes tags back from the API, but only when
+// tagsCurrentlyTracked (i.e. state already has a real tags value from a
+// prior apply). When unmanaged it leaves tag state untouched so portal tags
+// do not create a perpetual diff -- see tagsCurrentlyTracked's doc comment
+// for why this must NOT use tagsConfiguredInRequest/GetRawConfig here.
 func setServerTagsState(d *schema.ResourceData, c *gona.Client, diags *diag.Diagnostics) {
-	if !serverTagsConfigured(d) {
+	if !tagsCurrentlyTracked(d) {
 		return
 	}
 	id, err := strconv.Atoi(d.Id())

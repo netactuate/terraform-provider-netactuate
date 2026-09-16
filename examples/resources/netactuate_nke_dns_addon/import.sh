@@ -1,0 +1,1 @@
+terraform import netactuate_nke_dns_addon.example 12345

@@ -1,8 +1,8 @@
 # Ceph CSI RBD driver install (idempotent, tenant-agnostic).
 # Replace placeholders before applying:
-# - <CLUSTER_ID>   — from: terraform output rbd_cluster_id
-# - <MON_ADDR>     — full host:port e.g. "18.nss.example.com:6789" — from: terraform output rbd_monitors
-# - <RADOS_NAMESPACE> — from: terraform output rbd_namespace
+# - <CLUSTER_ID>: from: terraform output rbd_cluster_id
+# - <MON_ADDR>: full host:port e.g. "18.nss.example.com:6789": from: terraform output rbd_monitors
+# - <RADOS_NAMESPACE>: from: terraform output rbd_namespace
 
 ---
 apiVersion: v1

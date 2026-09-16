@@ -1,0 +1,1 @@
+terraform import netactuate_bgp_group_firewall_set.example 12345

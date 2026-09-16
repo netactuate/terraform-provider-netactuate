@@ -1,0 +1,1 @@
+terraform import netactuate_vpc_floating_ip.example 12345

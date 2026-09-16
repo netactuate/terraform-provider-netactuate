@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -188,13 +189,13 @@ func resourceStorageBlockVolumeRead(ctx context.Context, d *schema.ResourceData,
 		setValue("capacity", *vol.Metadata.Capacity.RequestedGB, d, &diags)
 	}
 	setValue("total_capacity_gb", vol.Metadata.Capacity.TotalGB, d, &diags)
-	setValue("endpoints", vol.Credentials.Endpoints, d, &diags)
+	setCredentialValue("endpoints", vol.Credentials.Endpoints, d, &diags)
 	setValue("storage_pool", vol.Credentials.Pool, d, &diags)
 	setValue("storage_namespace", vol.Credentials.Namespace, d, &diags)
 	setValue("storage_cluster_id", vol.Credentials.ClusterID, d, &diags)
-	setValue("image_name", vol.Credentials.ImageName, d, &diags)
-	setValue("user_key", vol.Credentials.UserKey, d, &diags)
-	setValue("secret_key", vol.Credentials.SecretKey, d, &diags)
+	setCredentialValue("image_name", vol.Credentials.ImageName, d, &diags)
+	setCredentialValue("user_key", vol.Credentials.UserKey, d, &diags)
+	setCredentialValue("secret_key", vol.Credentials.SecretKey, d, &diags)
 
 	return diags
 }
@@ -227,6 +228,29 @@ func resourceStorageBlockVolumeUpdate(ctx context.Context, d *schema.ResourceDat
 		if err := c.UpdateStorageBlockVolume(id, req); err != nil {
 			return diag.FromErr(err)
 		}
+		// An update is not instant. A capacity change is accepted with a 200 and applied
+		// over about twenty seconds, so reading straight away returns the OLD value and
+		// writes it into state: apply reports success while state disagrees with the API
+		// until some later refresh. PATCH capacity 2 can answer 200 with totalGB
+		// still 1, then report 2 twenty seconds later.
+		//
+		// Same not-ready window that delays credentials and refuses an early delete.
+		if err := c.WaitForStorageBlockVolumeReady(id); err != nil {
+			return diag.Errorf("storage block volume %d updated but failed to become ready: %s", id, err)
+		}
+		// ready is not enough: capacity lands after it. Wait for the value asked for.
+		if d.HasChange("capacity") {
+			want := d.Get("capacity").(int)
+			if err := waitForStorageCapacity(fmt.Sprintf("storage block volume %d", id), want, func() (int, error) {
+				obj, err := c.GetStorageBlockVolume(id)
+				if err != nil {
+					return 0, err
+				}
+				return obj.Metadata.Capacity.TotalGB, nil
+			}); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	return resourceStorageBlockVolumeRead(ctx, d, m)
@@ -242,7 +266,7 @@ func resourceStorageBlockVolumeDelete(ctx context.Context, d *schema.ResourceDat
 
 	log.Printf("[INFO] Deleting storage block volume %d", id)
 
-	if err := c.DeleteStorageBlockVolume(id); err != nil {
+	if err := deleteStorageWithRetry("block volume "+d.Id(), func() error { return c.DeleteStorageBlockVolume(id) }); err != nil {
 		if gona.IsV3NotFound(err) {
 			log.Printf("[WARN] Storage block volume %d already deleted", id)
 			return nil

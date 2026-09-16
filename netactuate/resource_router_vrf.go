@@ -17,7 +17,7 @@ func resourceRouterVRF() *schema.Resource {
 		ReadContext:   resourceRouterVRFRead,
 		UpdateContext: resourceRouterVRFUpdate,
 		DeleteContext: resourceRouterVRFDelete,
-		Description:   "Manages an additional VRF on a cloud router. Routers enrolled in netactuate_magic_mesh_router can only use the default VRF and cannot have additional VRFs.",
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages an additional VRF on a cloud router. Routers enrolled in netactuate_magic_mesh_router can only use the default VRF and cannot have additional VRFs.",
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
 			if !diff.NewValueKnown("router_id") {
 				return nil

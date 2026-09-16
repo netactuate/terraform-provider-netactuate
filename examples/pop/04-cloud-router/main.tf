@@ -1,5 +1,5 @@
 ### Cloud router
-# All resources below use the default_vrf_id — no custom VRFs needed.
+# All resources below use the default_vrf_id: no custom VRFs needed.
 
 resource "netactuate_router" "pop" {
   name        = "pop-${lower(var.location)}"
@@ -32,7 +32,7 @@ resource "netactuate_router_vrf_interface" "lo" {
   vrf_id      = netactuate_router.pop.default_vrf_id
   type        = "dummy"
   name        = "lo0"
-  description = "Loopback — BGP source"
+  description = "Loopback: BGP source"
   ipv4_cidr   = "${cidrhost(var.anycast_prefix, 1)}/32"
 
   depends_on = [netactuate_router.pop]
@@ -63,7 +63,7 @@ resource "netactuate_router_vrf_interface_wireguard_peer" "central_dc" {
   vrf_id       = netactuate_router.pop.default_vrf_id
   interface_id = netactuate_router_vrf_interface.wg.interface_id
   name         = "central-dc"
-  description  = "WireGuard peer — edge VM"
+  description  = "WireGuard peer: edge VM"
   remote       = var.wireguard_remote_endpoint
   public_key   = var.wireguard_remote_public_key
 

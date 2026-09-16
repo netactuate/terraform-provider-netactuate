@@ -1,0 +1,1 @@
+terraform import netactuate_usage_contract.example 12345

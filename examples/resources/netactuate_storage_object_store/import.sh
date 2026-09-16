@@ -1,0 +1,1 @@
+terraform import netactuate_storage_object_store.example 12345

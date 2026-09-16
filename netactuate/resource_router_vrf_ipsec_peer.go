@@ -14,6 +14,7 @@ import (
 
 func resourceRouterVRFIPSecPeer() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages an IPsec peer in a cloud router VRF.",
 		CreateContext: resourceRouterVRFIPSecPeerCreate,
 		ReadContext:   resourceRouterVRFIPSecPeerRead,
 		UpdateContext: resourceRouterVRFIPSecPeerUpdate,
@@ -88,9 +89,9 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 				AtLeastOneOf: []string{"overlay_ipv4", "overlay_ipv6"},
 			},
 			"overlay_ipv6": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Overlay tunnel IPv6 CIDR.",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Description:  "Overlay tunnel IPv6 CIDR.",
 				AtLeastOneOf: []string{"overlay_ipv4", "overlay_ipv6"},
 			},
 			"local_id": {

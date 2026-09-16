@@ -1,0 +1,1 @@
+terraform import netactuate_secret_list.example 12345

@@ -1,8 +1,8 @@
 provider "netactuate" {
   # API key can also be set via NETACTUATE_API_KEY environment variable
   api_key    = "NETACTUATE_API_KEY"
-  api_url    = "vAPI2_URL"  #vAPI2 URL
-  api_url_v3 = "vAPI3_URL"  #vAPI3 URL
+  api_url    = "vAPI2_URL" #vAPI2 URL
+  api_url_v3 = "vAPI3_URL" #vAPI3 URL
 }
 
 # Create a VPC with a private IPv4 network and default SNAT rule
@@ -15,7 +15,7 @@ resource "netactuate_vpc" "example" {
   network_ipv4 = "192.168.16.0/20"
 
   # DNS nameservers announced via DHCP
-  nameservers_ipv4 = ["104.225.32.1", "104.225.32.2"]
+  nameservers_ipv4 = ["192.0.2.53", "192.0.2.54"]
 
   # Enable default SNAT rule for outbound internet connectivity
   enable_default_snat = true
@@ -51,18 +51,18 @@ output "vpc_bastion_enabled" {
 
 # Define SSH Key to use for server login
 resource "netactuate_sshkey" "sshkey" {
-  name = "test@test-pc"
-  key  = "ssh-rsa SSH_KEY test@test-pc"
+  name = "example-key"
+  key  = var.ssh_public_key
 }
 
 
 # Deploy a server into the VPC
 resource "netactuate_server" "vpc_server" {
-  hostname    = "vpc-vm.example.com"
-  plan        = "PLAN" #PLAN_NAME
-  location    = "DEVRDU - Raleigh, NC"
-  image       = "Ubuntu 24.04 LTS (20240423)"
-  ssh_key_id  = netactuate_sshkey.sshkey.id
+  hostname   = "vpc-vm.example.com"
+  plan       = "PLAN" #PLAN_NAME
+  location   = "DEVRDU - Raleigh, NC"
+  image      = "Ubuntu 24.04 LTS (20240423)"
+  ssh_key_id = netactuate_sshkey.sshkey.id
 
   package_billing_contract_id = 1
 
@@ -104,53 +104,53 @@ resource "netactuate_vpc_gateway_dnat_rule" "web_v6" {
 
 # SNAT rule: allow the VPC IPv4 subnet to reach the internet (placed first)
 resource "netactuate_vpc_gateway_snat_rule" "outbound" {
-  vpc_id     = netactuate_vpc.example.vpc_id
-  ip_version = 4
-  protocol   = "TCP"
-  description = "Test SNAT rule"
+  vpc_id                    = netactuate_vpc.example.vpc_id
+  ip_version                = 4
+  protocol                  = "TCP"
+  description               = "Test SNAT rule"
   translation_port_start    = 10000
   translation_port_end      = 20000
-  match_internal_cidr         = "192.168.16.0/20"
-  translation_address_start   = netactuate_vpc.example.bastion_ipv4
+  match_internal_cidr       = "192.168.16.0/20"
+  translation_address_start = netactuate_vpc.example.bastion_ipv4
 
   priority_location = "start"
 }
 
 # SNAT rule: allow the VPC IPv6 subnet to reach the internet
 resource "netactuate_vpc_gateway_snat_rule" "outbound_v6" {
-  vpc_id      = netactuate_vpc.example.vpc_id
-  ip_version  = 6
-  protocol    = "TCP"
-  match_internal_cidr  = "fd00::/6"
-  description = "Outbound SNAT (IPv6)"
+  vpc_id              = netactuate_vpc.example.vpc_id
+  ip_version          = 6
+  protocol            = "TCP"
+  match_internal_cidr = "fd00::/6"
+  description         = "Outbound SNAT (IPv6)"
 
   priority_location = "start"
 }
 
 # SNAT rule: secondary outbound rule for a different subnet (placed after the first)
 resource "netactuate_vpc_gateway_snat_rule" "outbound_secondary" {
-  vpc_id     = netactuate_vpc.example.vpc_id
-  ip_version = 4
-  protocol   = "TCP"
-  description = "Secondary SNAT rule for management subnet"
+  vpc_id                    = netactuate_vpc.example.vpc_id
+  ip_version                = 4
+  protocol                  = "TCP"
+  description               = "Secondary SNAT rule for management subnet"
   translation_port_start    = 20001
   translation_port_end      = 30000
-  match_internal_cidr         = "192.168.17.0/24"
-  translation_address_start   = netactuate_vpc.example.bastion_ipv4
+  match_internal_cidr       = "192.168.17.0/24"
+  translation_address_start = netactuate_vpc.example.bastion_ipv4
 
   priority_after_rule_id = netactuate_vpc_gateway_snat_rule.outbound.rule_id
 }
 
 # Firewall rule: allow inbound HTTP traffic from a specific network (IPv4)
 resource "netactuate_vpc_gateway_firewall_rule" "allow_http_ipv4" {
-  vpc_id     = netactuate_vpc.example.vpc_id
-  ip_version = 4
-  direction  = "inbound"
-  protocol   = "TCP"
+  vpc_id      = netactuate_vpc.example.vpc_id
+  ip_version  = 4
+  direction   = "inbound"
+  protocol    = "TCP"
   description = "Allow HTTP from 172.16.0.0/12"
-  network    = "172.16.0.0/12"
-  port_start = 80
-  port_end   = 81
+  network     = "172.16.0.0/12"
+  port_start  = 80
+  port_end    = 81
 }
 
 # Firewall rule: allow inbound HTTP traffic (IPv6)
@@ -260,8 +260,8 @@ resource "netactuate_network_loadbalancer_group" "web_lb" {
 resource "netactuate_ssl_certificate" "example" {
   name        = "example-cert2"
   description = "Test SSL certificate"
-  certificate = file("cert.pem")
-  private_key = file("key.pem")
+  certificate = file(var.certificate_path)
+  private_key = file(var.private_key_path)
 }
 
 # HTTP load balancer group with domain rules and SSL
@@ -299,7 +299,7 @@ resource "netactuate_http_loadbalancer_group" "web_https" {
     name             = "web2"
     internal_address = "192.168.16.11"
   }
-backend {
+  backend {
     name             = "web3"
     internal_address = "192.168.16.13"
   }
@@ -310,4 +310,19 @@ resource "netactuate_vpc_ssh_key" "bastion_key" {
   vpc_id     = netactuate_vpc.example.vpc_id
   ssh_key_id = netactuate_sshkey.sshkey.id
   enabled    = true
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key to authorize on the example resources."
+  type        = string
+}
+
+variable "certificate_path" {
+  description = "Path to your PEM certificate file."
+  type        = string
+}
+
+variable "private_key_path" {
+  description = "Path to your PEM private key file; keep this file outside the repository."
+  type        = string
 }

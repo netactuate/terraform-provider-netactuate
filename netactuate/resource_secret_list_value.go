@@ -3,6 +3,7 @@ package netactuate
 import (
 	"context"
 	"fmt"
+	"github.com/netactuate/gona/gona"
 	"strconv"
 	"strings"
 
@@ -69,6 +70,13 @@ func resourceSecretListValueRead(ctx context.Context, d *schema.ResourceData, m 
 
 	val, err := c.GetSecretListValue(listID, valueID)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			// Deleted out of band. vAPI2 reports a missing secret as a 422 on its id
+			// field rather than a 404; the SDK maps that to NotFoundError. Without this
+			// the resource hard errors on every refresh on a credential resource.
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -110,13 +118,17 @@ func resourceSecretListValueDelete(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	if err := c.DeleteSecretListValue(listID, valueID); err != nil {
+		if gona.IsNotFound(err) {
+			// Already gone, which is what a delete wants. Not an error.
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-//Handle composite ID "secret_list_id/value_id"
+// Handle composite ID "secret_list_id/value_id"
 func resourceSecretListValueImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	parts := strings.SplitN(d.Id(), "/", 2)
 	if len(parts) != 2 {

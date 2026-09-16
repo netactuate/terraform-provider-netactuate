@@ -167,10 +167,13 @@ func resourceVPCGatewaySNATRuleCreate(ctx context.Context, d *schema.ResourceDat
 			AfterSnatRuleId int    `json:"afterSnatRuleId,omitempty"`
 		}{Location: v.(string)}
 	} else if v, ok := d.GetOk("priority_after_rule_id"); ok {
+		// location MUST be sent as "after" alongside the rule id. Sending the id alone
+		// is accepted with a 200 and then SILENTLY IGNORED: the rule lands at the start
+		// of the list instead of after the rule the customer named.
 		req.Priority = &struct {
 			Location        string `json:"location,omitempty"`
 			AfterSnatRuleId int    `json:"afterSnatRuleId,omitempty"`
-		}{AfterSnatRuleId: v.(int)}
+		}{Location: "after", AfterSnatRuleId: v.(int)}
 	}
 
 	rule, err := c.CreateVPCSNATRule(vpcID, req)
@@ -310,7 +313,7 @@ func resourceVPCGatewaySNATRuleUpdate(ctx context.Context, d *schema.ResourceDat
 			req.Priority = &struct {
 				Location        string `json:"location,omitempty"`
 				AfterSnatRuleId int    `json:"afterSnatRuleId,omitempty"`
-			}{AfterSnatRuleId: v.(int)}
+			}{Location: "after", AfterSnatRuleId: v.(int)}
 		}
 	}
 

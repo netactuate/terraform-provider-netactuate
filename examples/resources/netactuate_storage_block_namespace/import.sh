@@ -1,0 +1,1 @@
+terraform import netactuate_storage_block_namespace.example 12345

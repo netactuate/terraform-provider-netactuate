@@ -1,0 +1,1 @@
+terraform import netactuate_dedicated_server_power_status.example 12345

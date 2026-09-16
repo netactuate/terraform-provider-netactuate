@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -109,7 +110,7 @@ func resourceVPCGatewayFirewallRuleCreate(ctx context.Context, d *schema.Resourc
 		}
 	}
 
-	result, err := c.CreateVPCFirewallRule(vpcID, req)
+	result, err := createVPCFirewallRuleWithRetry(c, vpcID, req)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -282,4 +283,112 @@ func parseFirewallRuleID(id string) (int, int, error) {
 		return 0, 0, fmt.Errorf("invalid rule_id %q: %w", parts[1], err)
 	}
 	return vpcID, ruleID, nil
+}
+
+// createVPCFirewallRuleWithRetry creates a gateway firewall rule, retrying a 5xx safely.
+//
+// This endpoint returns HTTP 500 intermittently, measured at roughly one run in five across
+// fourteen runs of scenarios/vpc-private-networking, with the platform's own message being
+// "An error occurred while processing your request. Please try again later."
+//
+// It was first thought to be contention, because Terraform creates independent rules in
+// parallel. That was tested by serialising them with depends_on and it was REFUTED: the
+// serialised configuration failed the same way on the first rule in the chain, with nothing
+// running alongside it. Parallel failed 2 of 8, serialised 1 of 6. So a customer cannot avoid
+// this by ordering their configuration, and the mitigation has to be here.
+//
+// The retry is not blind, and that matters. A 500 can mean the rule was created and the
+// response was lost, so repeating the POST risks a duplicate rule. Before each retry the rule
+// list is re-read and a rule matching this request is adopted if one is already there. This is
+// the same shape as resourceFirewallRuleCreate's findRuleByRequest for the VM firewall.
+func createVPCFirewallRuleWithRetry(c *gona.V3Client, vpcID int, req *gona.CreateVPCFirewallRuleRequest) (*gona.CreateVPCFirewallRuleResponse, error) {
+	const attempts = 3
+
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		result, err := c.CreateVPCFirewallRule(vpcID, req)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+
+		// Only a server side fault is worth repeating. A 4xx means the request is wrong and
+		// will stay wrong.
+		if !isVPCFirewallRetryable(err) {
+			return nil, err
+		}
+
+		// The write may have landed even though the response did not come back. Adopt it
+		// rather than creating a second copy.
+		if existing, findErr := findVPCFirewallRuleByRequest(c, vpcID, req); findErr == nil && existing != nil {
+			log.Printf("[WARN] VPC %d firewall rule create returned %v, but rule %d matching the request already exists; adopting it", vpcID, err, existing.FirewallRuleID)
+			return &gona.CreateVPCFirewallRuleResponse{FirewallRuleID: existing.FirewallRuleID}, nil
+		}
+
+		if attempt < attempts {
+			log.Printf("[WARN] VPC %d firewall rule create attempt %d/%d failed (%v), retrying", vpcID, attempt, attempts, err)
+			time.Sleep(time.Duration(attempt) * 3 * time.Second)
+		}
+	}
+	return nil, fmt.Errorf("after %d attempts: %w", attempts, lastErr)
+}
+
+// isVPCFirewallRetryable reports whether an error is a server side fault worth repeating.
+func isVPCFirewallRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, marker := range []string{"HTTP 500", "HTTP 502", "HTTP 503", "HTTP 504"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// findVPCFirewallRuleByRequest looks for a rule already matching what we tried to create, so a
+// retry after a lost response adopts it instead of duplicating it. Matched on the fields the
+// request actually sets, since the API assigns the id.
+func findVPCFirewallRuleByRequest(c *gona.V3Client, vpcID int, req *gona.CreateVPCFirewallRuleRequest) (*gona.VPCFirewallRule, error) {
+	rules, err := c.ListVPCFirewallRules(vpcID, req.IPVersion)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rules {
+		if vpcFirewallRuleMatchesRequest(&rules[i], req) {
+			return &rules[i], nil
+		}
+	}
+	return nil, nil
+}
+
+// vpcFirewallRuleMatchesRequest reports whether an existing rule is the one this request was
+// trying to create. Kept pure and separate from the client call so it can be unit tested: it is
+// the part of the retry most likely to be wrong, and getting it wrong means either duplicating
+// a rule or adopting the wrong one.
+func vpcFirewallRuleMatchesRequest(r *gona.VPCFirewallRule, req *gona.CreateVPCFirewallRuleRequest) bool {
+	if r.Direction != req.Direction || r.Protocol != req.Protocol || r.Network != req.Network {
+		return false
+	}
+	if req.Description != "" && r.Description != req.Description {
+		return false
+	}
+	if req.Port == nil {
+		return r.Port == nil
+	}
+	if r.Port == nil || r.Port.Start != req.Port.Start {
+		return false
+	}
+	// A single port rule comes back from the API with end null, which unmarshals to zero and
+	// means the same as start.
+	gotEnd := r.Port.End
+	if gotEnd == 0 {
+		gotEnd = r.Port.Start
+	}
+	wantEnd := req.Port.End
+	if wantEnd == 0 {
+		wantEnd = req.Port.Start
+	}
+	return gotEnd == wantEnd
 }

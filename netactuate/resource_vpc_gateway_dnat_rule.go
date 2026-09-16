@@ -120,7 +120,7 @@ func resourceVPCGatewayDNATRuleCreate(ctx context.Context, d *schema.ResourceDat
 	matchPE, hasMatchPE := d.GetOk("match_port_end")
 	if hasMatchAddr || hasMatchPS || hasMatchPE {
 		req.Match = &struct {
-			Address string            `json:"address,omitempty"`
+			Address string             `json:"address,omitempty"`
 			Port    *gona.VPCPortRange `json:"port,omitempty"`
 		}{}
 		if hasMatchAddr {
@@ -138,7 +138,7 @@ func resourceVPCGatewayDNATRuleCreate(ctx context.Context, d *schema.ResourceDat
 	}
 
 	req.Translation = &struct {
-		Address string            `json:"address"`
+		Address string             `json:"address"`
 		Port    *gona.VPCPortRange `json:"port,omitempty"`
 	}{
 		Address: d.Get("translation_address").(string),
@@ -161,10 +161,13 @@ func resourceVPCGatewayDNATRuleCreate(ctx context.Context, d *schema.ResourceDat
 			AfterDnatRuleId int    `json:"afterDnatRuleId,omitempty"`
 		}{Location: v.(string)}
 	} else if v, ok := d.GetOk("priority_after_rule_id"); ok {
+		// location MUST be sent as "after" alongside the rule id. Sending the id alone
+		// is accepted with a 200 and then SILENTLY IGNORED: the rule lands at the start
+		// of the list instead of after the rule the customer named.
 		req.Priority = &struct {
 			Location        string `json:"location,omitempty"`
 			AfterDnatRuleId int    `json:"afterDnatRuleId,omitempty"`
-		}{AfterDnatRuleId: v.(int)}
+		}{Location: "after", AfterDnatRuleId: v.(int)}
 	}
 
 	rule, err := c.CreateVPCDNATRule(vpcID, req)
@@ -259,7 +262,7 @@ func resourceVPCGatewayDNATRuleUpdate(ctx context.Context, d *schema.ResourceDat
 
 	if d.HasChanges("match_address", "match_port_start", "match_port_end") {
 		req.Match = &struct {
-			Address string            `json:"address,omitempty"`
+			Address string             `json:"address,omitempty"`
 			Port    *gona.VPCPortRange `json:"port,omitempty"`
 		}{
 			Address: d.Get("match_address").(string),
@@ -273,7 +276,7 @@ func resourceVPCGatewayDNATRuleUpdate(ctx context.Context, d *schema.ResourceDat
 
 	if d.HasChanges("translation_address", "translation_port_start", "translation_port_end") {
 		req.Translation = &struct {
-			Address string            `json:"address,omitempty"`
+			Address string             `json:"address,omitempty"`
 			Port    *gona.VPCPortRange `json:"port,omitempty"`
 		}{
 			Address: d.Get("translation_address").(string),
@@ -295,7 +298,7 @@ func resourceVPCGatewayDNATRuleUpdate(ctx context.Context, d *schema.ResourceDat
 			req.Priority = &struct {
 				Location        string `json:"location,omitempty"`
 				AfterDnatRuleId int    `json:"afterDnatRuleId,omitempty"`
-			}{AfterDnatRuleId: v.(int)}
+			}{Location: "after", AfterDnatRuleId: v.(int)}
 		}
 	}
 

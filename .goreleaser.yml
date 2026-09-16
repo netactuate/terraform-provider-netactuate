@@ -27,8 +27,16 @@ builds:
     - arm
     - arm64
   ignore:
+    # Go supports none of these three pairs, and goreleaser builds the matrix it is given.
+    # Without these ignores a release attempts them and fails on
+    # "unsupported GOOS/GOARCH pair". Confirmed with `go tool dist list` on go1.26:
+    # darwin has only amd64 and arm64, windows has 386, amd64 and arm64.
     - goos: darwin
       goarch: '386'
+    - goos: darwin
+      goarch: arm
+    - goos: windows
+      goarch: arm
   binary: '{{ .ProjectName }}_v{{ .Version }}'
 archives:
 - format: zip

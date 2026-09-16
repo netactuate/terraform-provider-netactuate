@@ -1,0 +1,1 @@
+terraform import netactuate_router_vrf_interface_wireguard_peer.example 12345

@@ -31,7 +31,7 @@ locals {
 
 resource "netactuate_vpc" "pop" {
   label                 = "pop-${lower(var.location)}"
-  description           = "PoP VPC at ${var.location} — private backend + load balancer"
+  description           = "PoP VPC at ${var.location}: private backend + load balancer"
   location              = var.location
   network_ipv4          = var.vpc_network_ipv4
   enable_default_snat   = true
@@ -49,7 +49,7 @@ resource "netactuate_vpc_ssh_key" "pop" {
 
 ### Backend VMs
 # Application servers inside the VPC. Traffic from the internet never reaches
-# them directly — only via the load balancer.
+# them directly: only via the load balancer.
 
 resource "netactuate_server" "backend1" {
   hostname                    = "backend01.${lower(var.location)}.internal"
@@ -116,7 +116,7 @@ resource "netactuate_vpc_floating_ip" "pub_v6" {
 resource "netactuate_network_loadbalancer_group" "http" {
   network_loadbalancer_id = netactuate_vpc.pop.network_loadbalancer_id
   name                    = "pop-tcp-80"
-  description             = "TCP port 80 — direct pass-through to backends"
+  description             = "TCP port 80: direct pass-through to backends"
   ip_version              = 4
   algorithm               = "least-connections"
   match_address           = netactuate_vpc_floating_ip.pub.address

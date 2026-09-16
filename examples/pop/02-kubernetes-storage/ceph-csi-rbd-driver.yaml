@@ -1,8 +1,8 @@
 # Ceph CSI RBD driver install (idempotent, tenant-agnostic).
 # Replace placeholders before applying:
-# - <CLUSTER_ID>   — from: terraform output cache_storage_cluster_id (example 01) or block_storage_cluster_id (example 02)
-# - <MON_ADDR>     — full host:port e.g. "18.nss.example.com:6789" — from: terraform output cache_volume_endpoints (example 01) or block_storage_endpoints (example 02)
-# - <RADOS_NAMESPACE> — from: terraform output cache_storage_namespace (example 01) or block_storage_namespace (example 02)
+# - <CLUSTER_ID>: from: terraform output cache_storage_cluster_id (example 01) or block_storage_cluster_id (example 02)
+# - <MON_ADDR>: full host:port e.g. "18.nss.example.com:6789": from: terraform output cache_volume_endpoints (example 01) or block_storage_endpoints (example 02)
+# - <RADOS_NAMESPACE>: from: terraform output cache_storage_namespace (example 01) or block_storage_namespace (example 02)
 
 ---
 apiVersion: v1

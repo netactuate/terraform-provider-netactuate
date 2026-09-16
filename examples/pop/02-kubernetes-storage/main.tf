@@ -14,7 +14,7 @@ locals {
 }
 
 ### HA Kubernetes cluster
-# 3-replica control plane (high availability), 3–4 worker nodes with autoscaling.
+# 3-replica control plane (high availability), 3: 4 worker nodes with autoscaling.
 # Services: application pods, nginx-ingress, cert-manager, Prometheus/Grafana,
 # and persistent volumes backed by the Ceph RBD namespace below.
 

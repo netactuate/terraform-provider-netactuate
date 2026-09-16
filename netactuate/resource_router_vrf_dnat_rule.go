@@ -14,32 +14,36 @@ import (
 
 func resourceRouterVRFDNATRule() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a destination NAT rule in a cloud router VRF.",
 		CreateContext: resourceRouterVRFDNATRuleCreate,
 		ReadContext:   resourceRouterVRFDNATRuleRead,
 		UpdateContext: resourceRouterVRFDNATRuleUpdate,
 		DeleteContext: resourceRouterVRFDNATRuleDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceRouterVRFDNATRuleImport,
+		},
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
-            matchPortStart, hasMatchStart := diff.GetOk("match_port_start")
-            matchPortEnd, hasMatchEnd := diff.GetOk("match_port_end")
-            if hasMatchStart && hasMatchEnd {
-                startVal := matchPortStart.(int)
-                endVal := matchPortEnd.(int)
-                if startVal == endVal {
-                    return fmt.Errorf("match_port_start and match_port_end have the same value (%d). For a single port, only set match_port_start and omit match_port_end", startVal)
-                }
-            }
+			matchPortStart, hasMatchStart := diff.GetOk("match_port_start")
+			matchPortEnd, hasMatchEnd := diff.GetOk("match_port_end")
+			if hasMatchStart && hasMatchEnd {
+				startVal := matchPortStart.(int)
+				endVal := matchPortEnd.(int)
+				if startVal == endVal {
+					return fmt.Errorf("match_port_start and match_port_end have the same value (%d). For a single port, only set match_port_start and omit match_port_end", startVal)
+				}
+			}
 
-            translationPortStart, hasTranslationStart := diff.GetOk("translation_port_start")
-            translationPortEnd, hasTranslationEnd := diff.GetOk("translation_port_end")
-            if hasTranslationStart && hasTranslationEnd {
-                startVal := translationPortStart.(int)
-                endVal := translationPortEnd.(int)
-                if startVal == endVal {
-                    return fmt.Errorf("translation_port_start and translation_port_end have the same value (%d). For a single port, only set translation_port_start and omit translation_port_end", startVal)
-                }
-            }
-            return nil
-        },
+			translationPortStart, hasTranslationStart := diff.GetOk("translation_port_start")
+			translationPortEnd, hasTranslationEnd := diff.GetOk("translation_port_end")
+			if hasTranslationStart && hasTranslationEnd {
+				startVal := translationPortStart.(int)
+				endVal := translationPortEnd.(int)
+				if startVal == endVal {
+					return fmt.Errorf("translation_port_start and translation_port_end have the same value (%d). For a single port, only set translation_port_start and omit translation_port_end", startVal)
+				}
+			}
+			return nil
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -60,14 +64,14 @@ func resourceRouterVRFDNATRule() *schema.Resource {
 			},
 			"ip_version": {
 				Type:             schema.TypeInt,
-				Required:        true,
+				Required:         true,
 				ValidateDiagFunc: validation.ToDiagFunc(validation.IntInSlice([]int{4, 6})),
 				Description:      "IP version for this rule (4 or 6)",
 			},
 			"ip_version_computed": {
-				Type:             schema.TypeInt,
-				Computed:    	  true,
-				Description:      "The value is computed based on the 'ip_version' field",
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "The value is computed based on the 'ip_version' field",
 			},
 			"protocol": {
 				Type:             schema.TypeString,
@@ -126,9 +130,9 @@ func resourceRouterVRFDNATRule() *schema.Resource {
 				Description:      "Place this rule at 'start', 'end', or 'after' another rule",
 			},
 			"priority_after_dnat_rule_id": {
-				Type:          schema.TypeInt,
-				Optional:      true,
-				Description:   "Place this rule after the given DNAT rule ID",
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Description: "Place this rule after the given DNAT rule ID",
 			},
 		},
 	}
@@ -149,13 +153,13 @@ func buildDNATPortRange(d *schema.ResourceData, startKey, endKey string) *gona.V
 }
 
 func buildDNATMatchConfig(d *schema.ResourceData) *struct {
-	InterfaceID int              `json:"interfaceId"`
-	Network     string           `json:"network"`
+	InterfaceID int                `json:"interfaceId"`
+	Network     string             `json:"network"`
 	Port        *gona.VPCPortRange `json:"port,omitempty"`
 } {
 	return &struct {
-		InterfaceID int              `json:"interfaceId"`
-		Network     string           `json:"network"`
+		InterfaceID int                `json:"interfaceId"`
+		Network     string             `json:"network"`
 		Port        *gona.VPCPortRange `json:"port,omitempty"`
 	}{
 		InterfaceID: d.Get("match_interface_id").(int),
@@ -165,11 +169,11 @@ func buildDNATMatchConfig(d *schema.ResourceData) *struct {
 }
 
 func buildDNATTranslationConfig(d *schema.ResourceData) *struct {
-	Network string           `json:"network"`
+	Network string             `json:"network"`
 	Port    *gona.VPCPortRange `json:"port,omitempty"`
 } {
 	return &struct {
-		Network string           `json:"network"`
+		Network string             `json:"network"`
 		Port    *gona.VPCPortRange `json:"port,omitempty"`
 	}{
 		Network: d.Get("translation_network").(string),
@@ -179,7 +183,7 @@ func buildDNATTranslationConfig(d *schema.ResourceData) *struct {
 
 func buildDNATPriorityConfig(d *schema.ResourceData) *struct {
 	Location        string `json:"location,omitempty"`
-	AfterDnatRuleId *int    `json:"afterDnatRuleId,omitempty"`
+	AfterDnatRuleId *int   `json:"afterDnatRuleId,omitempty"`
 } {
 
 	var afterDnatRuleID *int
@@ -189,9 +193,17 @@ func buildDNATPriorityConfig(d *schema.ResourceData) *struct {
 	}
 	location := d.Get("priority_location").(string)
 
+	// priority is optional at the API, but when the object IS present its location is
+	// required. Returning a non-nil struct with an empty location emitted "priority": {}
+	// because of the omitempty tag, and the platform rejected it with
+	// missing_required_fields: ["priority.location"]. Omit the whole object instead.
+	if location == "" {
+		return nil
+	}
+
 	return &struct {
 		Location        string `json:"location,omitempty"`
-		AfterDnatRuleId *int    `json:"afterDnatRuleId,omitempty"`
+		AfterDnatRuleId *int   `json:"afterDnatRuleId,omitempty"`
 	}{
 		Location:        location,
 		AfterDnatRuleId: afterDnatRuleID,
@@ -254,6 +266,9 @@ func resourceRouterVRFDNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 		}
 		return diag.FromErr(err)
 	}
+	if rule.IPVersion != 0 {
+		ipVersion = rule.IPVersion
+	}
 
 	var diags diag.Diagnostics
 
@@ -305,7 +320,7 @@ func resourceRouterVRFDNATRuleUpdate(ctx context.Context, d *schema.ResourceData
 	defer unlock()
 
 	req := &gona.UpdateRouterVRFDNATRuleRequest{
-		IPVersion: ipVersion,
+		IPVersion:   ipVersion,
 		Protocol:    d.Get("protocol").(string),
 		Description: d.Get("description").(string),
 		Match:       buildDNATMatchConfig(d),
@@ -342,6 +357,20 @@ func resourceRouterVRFDNATRuleDelete(ctx context.Context, d *schema.ResourceData
 	}
 
 	return nil
+}
+
+func resourceRouterVRFDNATRuleImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, dnatRuleID, err := parseRouterVRFDNATRuleResourceID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q, expected \"routerId/vrfId/dnatRuleId\"", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, dnatRuleID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+	d.Set("dnat_rule_id", dnatRuleID)
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func parseRouterVRFDNATRuleResourceID(id string) (int, int, int, error) {

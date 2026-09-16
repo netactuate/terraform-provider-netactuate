@@ -249,6 +249,83 @@ func findRuleByPriority(c *gona.Client, setID, priority int) (*gona.FirewallRule
 	return nil, fmt.Errorf("rule with priority %d not found", priority)
 }
 
+// findRuleByRequest finds a rule by content because publishing a draft can
+// change both rule IDs and priorities. The match must be unambiguous.
+func findRuleByRequest(c *gona.Client, setID int, req *gona.CreateFirewallRuleRequest) (*gona.FirewallRule, error) {
+	rules, err := c.GetFirewallRules(setID)
+	if err != nil {
+		return nil, err
+	}
+	var match *gona.FirewallRule
+	for i := range rules {
+		if !ruleMatchesRequest(rules[i], req) {
+			continue
+		}
+		if match != nil {
+			return nil, fmt.Errorf("multiple rules on set %d match the requested configuration -- cannot unambiguously correlate after publish", setID)
+		}
+		r := rules[i]
+		match = &r
+	}
+	if match == nil {
+		return nil, fmt.Errorf("no rule matching the requested configuration found on set %d after publish", setID)
+	}
+	return match, nil
+}
+
+func ruleMatchesRequest(r gona.FirewallRule, req *gona.CreateFirewallRuleRequest) bool {
+	if r.IPVersion != req.IPVersion || r.Action != req.Action || r.Enabled != req.Enabled || r.AdminComment != req.AdminComment {
+		return false
+	}
+	if req.Direction != "" && r.Direction != req.Direction {
+		return false
+	}
+	return matchCriteriaEqual(r.MatchCriteria, req.MatchCriteria)
+}
+
+func matchCriteriaEqual(a, b *gona.FirewallMatchCriteria) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Protocol != b.Protocol {
+		return false
+	}
+	if !intPtrEqual(a.SourcePortStart, b.SourcePortStart) || !intPtrEqual(a.SourcePortEnd, b.SourcePortEnd) ||
+		!intPtrEqual(a.DestinationPortStart, b.DestinationPortStart) || !intPtrEqual(a.DestinationPortEnd, b.DestinationPortEnd) {
+		return false
+	}
+	if !stringSliceEqual(a.SourceNet, b.SourceNet) || !stringSliceEqual(a.DestinationNet, b.DestinationNet) {
+		return false
+	}
+	var aICMP, bICMP string
+	if a.Options != nil {
+		aICMP = a.Options.ICMPType
+	}
+	if b.Options != nil {
+		bICMP = b.Options.ICMPType
+	}
+	return aICMP == bICMP
+}
+
+func intPtrEqual(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func stringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func resourceFirewallRuleCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V2
 
@@ -275,8 +352,9 @@ func resourceFirewallRuleCreate(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(fmt.Errorf("publishing draft: %w", err))
 	}
 
-	//Find the new rule on the original set by its priority
-	newRule, err := findRuleByPriority(c, setID, createdRule.RulePriority)
+	//Find the new rule on the original set by its content (not priority --
+	//confirmed live not to survive a publish, see findRuleByRequest)
+	newRule, err := findRuleByRequest(c, setID, req)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("rule not found after publish: %w", err))
 	}
@@ -384,12 +462,9 @@ func resourceFirewallRuleUpdate(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(fmt.Errorf("publishing draft: %w", err))
 	}
 
-	//Find the updated rule on the original set by its new priority
-	newPriority := currentPriority
-	if req.RulePriority != nil {
-		newPriority = *req.RulePriority
-	}
-	updatedRule, err := findRuleByPriority(c, setID, newPriority)
+	//Find the updated rule on the original set by its content (not priority
+	//-- confirmed live not to survive a publish, see findRuleByRequest)
+	updatedRule, err := findRuleByRequest(c, setID, req)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("rule not found after publish: %w", err))
 	}

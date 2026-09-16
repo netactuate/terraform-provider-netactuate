@@ -1,0 +1,1 @@
+terraform import netactuate_tag_assignment.example 12345

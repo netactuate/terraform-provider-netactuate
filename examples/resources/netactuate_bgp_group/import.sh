@@ -1,0 +1,1 @@
+terraform import netactuate_bgp_group.example 12345

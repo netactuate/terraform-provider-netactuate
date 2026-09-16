@@ -2,11 +2,13 @@ package netactuate
 
 import (
 	"context"
+	"log"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/netactuate/gona/gona"
 )
 
 func resourceSshKey() *schema.Resource {
@@ -26,7 +28,7 @@ func resourceSshKey() *schema.Resource {
 			"key": {
 				Type:     schema.TypeString,
 				Required: true,
-				StateFunc: func(val any) string {
+				StateFunc: func(val interface{}) string {
 					return strings.TrimSpace(val.(string))
 				},
 			},
@@ -62,6 +64,11 @@ func resourceSshKeyRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	sshKey, err := c.GetSSHKey(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			log.Printf("[WARN] SSH key %d not found, removing from state", id)
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -87,6 +94,10 @@ func resourceSshKeyDelete(ctx context.Context, d *schema.ResourceData, m interfa
 
 	err = c.DeleteSSHKey(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			log.Printf("[WARN] SSH key %d already deleted", id)
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

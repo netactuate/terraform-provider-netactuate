@@ -13,6 +13,7 @@ import (
 
 func resourceRouterVRFBGP() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages the BGP configuration of a cloud router VRF.",
 		CreateContext: resourceRouterVRFBGPCreate,
 		ReadContext:   resourceRouterVRFBGPRead,
 		UpdateContext: resourceRouterVRFBGPUpdate,
@@ -31,13 +32,13 @@ func resourceRouterVRFBGP() *schema.Resource {
 				Description: "The ID of the VRF.",
 			},
 			"local_asn": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "Your local ASN for BGP. Must be between 1 and 4294967294.",
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Your local ASN for BGP. Must be between 1 and 4294967294.",
 			},
 			"networks": {
 				Type:        schema.TypeList,
-				Required:     true,
+				Required:    true,
 				Description: "The list of networks to announce over your BGP sessions.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -74,6 +75,10 @@ func resourceRouterVRFBGPRead(ctx context.Context, d *schema.ResourceData, m int
 
 	bgpConfig, err := c.GetRouterVRFBGP(routerID, vrfID)
 	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

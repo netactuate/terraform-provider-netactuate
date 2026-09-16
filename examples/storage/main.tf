@@ -1,8 +1,8 @@
 provider "netactuate" {
   # API key can also be set via NETACTUATE_API_KEY environment variable
   api_key    = "NETACTUATE_API_KEY"
-  api_url    = "vAPI2_URL"  #vAPI2 URL
-  api_url_v3 = "vAPI3_URL"  #vAPI3 URL
+  api_url    = "vAPI2_URL" #vAPI2 URL
+  api_url_v3 = "vAPI3_URL" #vAPI3 URL
 }
 
 
@@ -14,10 +14,10 @@ output "available_storage_locations" {
 
 # Bucket
 resource "netactuate_storage_bucket" "example" {
-  label              = "Terraform test bucket 2"
-  location           = "DEVRDU - Raleigh, NC"
-  capacity           = 2
-  private            = false
+  label               = "Terraform test bucket 2"
+  location            = "DEVRDU - Raleigh, NC"
+  capacity            = 2
+  private             = false
   enable_auto_scaling = false
 }
 
@@ -36,9 +36,9 @@ output "bucket_access_key" {
 
 # Object Store
 resource "netactuate_storage_object_store" "example" {
-  label              = "Terraform test object store 2"
-  location           = "DEVRDU - Raleigh, NC"
-  capacity           = 2
+  label               = "Terraform test object store 2"
+  location            = "DEVRDU - Raleigh, NC"
+  capacity            = 2
   enable_auto_scaling = false
 }
 
@@ -52,9 +52,9 @@ output "object_store_endpoints" {
 
 # Dynamic Block
 resource "netactuate_storage_block_namespace" "example" {
-  label              = "Terraform dynamic block 2"
-  location           = "DEVRDU - Raleigh, NC"
-  capacity           = 2
+  label               = "Terraform dynamic block 2"
+  location            = "DEVRDU - Raleigh, NC"
+  capacity            = 2
   enable_auto_scaling = false
 }
 
@@ -72,9 +72,9 @@ output "block_namespace_endpoints" {
 
 # Block Volume
 resource "netactuate_storage_block_volume" "example" {
-  label       = "Terraform block volume 2"
-  location    = "DEVRDU - Raleigh, NC"
-  capacity    = 2
+  label    = "Terraform block volume 2"
+  location = "DEVRDU - Raleigh, NC"
+  capacity = 2
 }
 
 output "block_volume_id" {

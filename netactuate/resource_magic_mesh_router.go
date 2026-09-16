@@ -17,7 +17,7 @@ func resourceMagicMeshRouter() *schema.Resource {
 		CreateContext: resourceMagicMeshRouterCreate,
 		ReadContext:   resourceMagicMeshRouterRead,
 		DeleteContext: resourceMagicMeshRouterDelete,
-		Description:   "Adds a cloud router to a magic mesh. Routers in magic mesh can only use the default VRF, so they cannot be managed with netactuate_router_vrf additional VRFs.",
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Adds a cloud router to a magic mesh. Routers in magic mesh can only use the default VRF, so they cannot be managed with netactuate_router_vrf additional VRFs.",
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
 			if !diff.NewValueKnown("router_id") {
 				return nil

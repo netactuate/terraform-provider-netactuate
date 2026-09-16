@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -145,9 +146,11 @@ func resourceStorageBlockNamespaceCreate(ctx context.Context, d *schema.Resource
 	if v, ok := d.GetOk("capacity"); ok {
 		req.Capacity = v.(int)
 	}
-	if v := d.Get("enable_auto_scaling").(bool); v {
-		req.EnableAutoScaling = &v
-	}
+	// The schema carries an explicit default, so false is a chosen value rather than an absent
+	// one. Sending it only when true leaves the platform to apply its own default and puts an
+	// unsettleable change in every later plan.
+	autoScaling := d.Get("enable_auto_scaling").(bool)
+	req.EnableAutoScaling = &autoScaling
 
 	nsID, err := c.CreateStorageBlockNamespace(req)
 	if err != nil {
@@ -198,12 +201,12 @@ func resourceStorageBlockNamespaceRead(ctx context.Context, d *schema.ResourceDa
 	}
 	setValue("total_capacity_gb", ns.Metadata.Capacity.TotalGB, d, &diags)
 	setValue("auto_scaling", ns.Metadata.Capacity.AutoScaling, d, &diags)
-	setValue("endpoints", ns.Credentials.Endpoints, d, &diags)
+	setCredentialValue("endpoints", ns.Credentials.Endpoints, d, &diags)
 	setValue("storage_pool", ns.Credentials.Pool, d, &diags)
 	setValue("storage_namespace", ns.Credentials.Namespace, d, &diags)
 	setValue("storage_cluster_id", ns.Credentials.ClusterID, d, &diags)
-	setValue("user_key", ns.Credentials.UserKey, d, &diags)
-	setValue("secret_key", ns.Credentials.SecretKey, d, &diags)
+	setCredentialValue("user_key", ns.Credentials.UserKey, d, &diags)
+	setCredentialValue("secret_key", ns.Credentials.SecretKey, d, &diags)
 
 	return diags
 }
@@ -241,6 +244,29 @@ func resourceStorageBlockNamespaceUpdate(ctx context.Context, d *schema.Resource
 		if err := c.UpdateStorageBlockNamespace(id, req); err != nil {
 			return diag.FromErr(err)
 		}
+		// An update is not instant. A capacity change is accepted with a 200 and applied
+		// over about twenty seconds, so reading straight away returns the OLD value and
+		// writes it into state: apply reports success while state disagrees with the API
+		// until some later refresh. PATCH capacity 2 can answer 200 with totalGB
+		// still 1, then report 2 twenty seconds later.
+		//
+		// Same not-ready window that delays credentials and refuses an early delete.
+		if err := c.WaitForStorageBlockNamespaceReady(id); err != nil {
+			return diag.Errorf("storage block namespace %d updated but failed to become ready: %s", id, err)
+		}
+		// ready is not enough: capacity lands after it. Wait for the value asked for.
+		if d.HasChange("capacity") {
+			want := d.Get("capacity").(int)
+			if err := waitForStorageCapacity(fmt.Sprintf("storage block namespace %d", id), want, func() (int, error) {
+				obj, err := c.GetStorageBlockNamespace(id)
+				if err != nil {
+					return 0, err
+				}
+				return obj.Metadata.Capacity.TotalGB, nil
+			}); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	return resourceStorageBlockNamespaceRead(ctx, d, m)
@@ -256,7 +282,7 @@ func resourceStorageBlockNamespaceDelete(ctx context.Context, d *schema.Resource
 
 	log.Printf("[INFO] Deleting storage block namespace %d", id)
 
-	if err := c.DeleteStorageBlockNamespace(id); err != nil {
+	if err := deleteStorageWithRetry("block namespace "+d.Id(), func() error { return c.DeleteStorageBlockNamespace(id) }); err != nil {
 		if gona.IsV3NotFound(err) {
 			log.Printf("[WARN] Storage block namespace %d already deleted", id)
 			return nil

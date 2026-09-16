@@ -36,7 +36,7 @@ terraform destroy
 
 ## Destroy step by step
 
-Destroy in dependency order — children before parents.
+Destroy in dependency order: children before parents.
 
 ```bash
 # 1. Load balancer groups (depend on LBs which are part of the VPC)

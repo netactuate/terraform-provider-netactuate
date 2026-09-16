@@ -1,0 +1,1 @@
+terraform import netactuate_bgp_sessions.example 12345

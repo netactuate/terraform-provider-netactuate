@@ -15,6 +15,7 @@ import (
 
 func resourceRouterPrefixList() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a prefix list on a cloud router, used by BGP policy.",
 		CreateContext: resourceRouterPrefixListCreate,
 		ReadContext:   resourceRouterPrefixListRead,
 		UpdateContext: resourceRouterPrefixListUpdate,

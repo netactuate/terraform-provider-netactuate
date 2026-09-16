@@ -14,10 +14,14 @@ import (
 
 func resourceRouterVRFSNATRule() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a source NAT rule in a cloud router VRF.",
 		CreateContext: resourceRouterVRFSNATRuleCreate,
 		ReadContext:   resourceRouterVRFSNATRuleRead,
 		UpdateContext: resourceRouterVRFSNATRuleUpdate,
 		DeleteContext: resourceRouterVRFSNATRuleDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceRouterVRFSNATRuleImport,
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -43,9 +47,9 @@ func resourceRouterVRFSNATRule() *schema.Resource {
 				Description:      "IP version for this rule (4 or 6)",
 			},
 			"ip_version_computed": {
-				Type:             schema.TypeInt,
-				Computed:    	  true,
-				Description:      "The value is computed based on the 'ip_version' field",
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "The value is computed based on the 'ip_version' field",
 			},
 			"protocol": {
 				Type:             schema.TypeString,
@@ -104,9 +108,9 @@ func resourceRouterVRFSNATRule() *schema.Resource {
 				Description:      "Place this rule at 'start', 'end', or 'after' another rule",
 			},
 			"priority_after_snat_rule_id": {
-				Type:          schema.TypeInt,
-				Optional:      true,
-				Description:   "Place this rule after the given SNAT rule ID",
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Description: "Place this rule after the given SNAT rule ID",
 			},
 		},
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
@@ -141,13 +145,13 @@ func buildSNATPortRange(d *schema.ResourceData, startKey, endKey string) *gona.V
 }
 
 func buildSNATMatchConfig(d *schema.ResourceData) *struct {
-	InterfaceID int              `json:"interfaceId"`
-	Network     string           `json:"network"`
+	InterfaceID int                `json:"interfaceId"`
+	Network     string             `json:"network"`
 	Port        *gona.VPCPortRange `json:"port,omitempty"`
 } {
 	return &struct {
-		InterfaceID int              `json:"interfaceId"`
-		Network     string           `json:"network"`
+		InterfaceID int                `json:"interfaceId"`
+		Network     string             `json:"network"`
 		Port        *gona.VPCPortRange `json:"port,omitempty"`
 	}{
 		InterfaceID: d.Get("match_interface_id").(int),
@@ -157,11 +161,11 @@ func buildSNATMatchConfig(d *schema.ResourceData) *struct {
 }
 
 func buildSNATTranslationConfig(d *schema.ResourceData) *struct {
-	Network string           `json:"network"`
+	Network string             `json:"network"`
 	Port    *gona.VPCPortRange `json:"port,omitempty"`
 } {
 	return &struct {
-		Network string           `json:"network"`
+		Network string             `json:"network"`
 		Port    *gona.VPCPortRange `json:"port,omitempty"`
 	}{
 		Network: d.Get("translation_network").(string),
@@ -171,7 +175,7 @@ func buildSNATTranslationConfig(d *schema.ResourceData) *struct {
 
 func buildSNATPriorityConfig(d *schema.ResourceData) *struct {
 	Location        string `json:"location,omitempty"`
-	AfterSnatRuleId *int    `json:"afterSnatRuleId,omitempty"`
+	AfterSnatRuleId *int   `json:"afterSnatRuleId,omitempty"`
 } {
 
 	var afterSnatRuleID *int
@@ -181,9 +185,17 @@ func buildSNATPriorityConfig(d *schema.ResourceData) *struct {
 	}
 	location := d.Get("priority_location").(string)
 
+	// priority is optional at the API, but when the object IS present its location is
+	// required. Returning a non-nil struct with an empty location emitted "priority": {}
+	// because of the omitempty tag, and the platform rejected it with
+	// missing_required_fields: ["priority.location"]. Omit the whole object instead.
+	if location == "" {
+		return nil
+	}
+
 	return &struct {
 		Location        string `json:"location,omitempty"`
-		AfterSnatRuleId *int    `json:"afterSnatRuleId,omitempty"`
+		AfterSnatRuleId *int   `json:"afterSnatRuleId,omitempty"`
 	}{
 		Location:        location,
 		AfterSnatRuleId: afterSnatRuleID,
@@ -245,6 +257,9 @@ func resourceRouterVRFSNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 		}
 		return diag.FromErr(err)
 	}
+	if rule.IPVersion != 0 {
+		ipVersion = rule.IPVersion
+	}
 
 	var diags diag.Diagnostics
 
@@ -303,7 +318,7 @@ func resourceRouterVRFSNATRuleUpdate(ctx context.Context, d *schema.ResourceData
 	defer unlock()
 
 	req := &gona.UpdateRouterVRFSNATRuleRequest{
-		IPVersion: ipVersion,
+		IPVersion:   ipVersion,
 		Protocol:    d.Get("protocol").(string),
 		Description: d.Get("description").(string),
 		Match:       buildSNATMatchConfig(d),
@@ -340,6 +355,20 @@ func resourceRouterVRFSNATRuleDelete(ctx context.Context, d *schema.ResourceData
 	}
 
 	return nil
+}
+
+func resourceRouterVRFSNATRuleImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, vrfID, snatRuleID, err := parseRouterVRFSNATRuleResourceID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q, expected \"routerId/vrfId/snatRuleId\"", d.Id())
+	}
+
+	d.SetId(fmt.Sprintf("%d/%d/%d", routerID, vrfID, snatRuleID))
+	d.Set("router_id", routerID)
+	d.Set("vrf_id", vrfID)
+	d.Set("snat_rule_id", snatRuleID)
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func parseRouterVRFSNATRuleResourceID(id string) (int, int, int, error) {

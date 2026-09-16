@@ -1,0 +1,1 @@
+terraform import netactuate_cloud_ipv4_reverse_dns.example 12345

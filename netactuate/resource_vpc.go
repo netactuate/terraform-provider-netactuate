@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/netactuate/gona/gona"
 )
 
@@ -40,9 +42,16 @@ func resourceVPC() *schema.Resource {
 				Description: "The ID of the VPC",
 			},
 			"label": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The name of the VPC shown in the portal (max 32 chars)",
+				Type:     schema.TypeString,
+				Required: true,
+				// The 32 character limit was already DOCUMENTED here and not enforced, so
+				// an over-long label was accepted by the plan and rejected by the API at
+				// apply time with
+				//   400 label: "String must be at most 32 characters in length."
+				// after the plan had already been approved. Validated now, so the failure
+				// happens at plan with the customer's own value named.
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringLenBetween(1, 32)),
+				Description:      "The name of the VPC shown in the portal (max 32 chars)",
 			},
 			"description": {
 				Type:        schema.TypeString,
@@ -74,33 +83,46 @@ func resourceVPC() *schema.Resource {
 			"network_ipv4": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true,
 				ForceNew:    true,
 				Description: "The IPv4 network CIDR available within the VPC (e.g. 10.0.0.0/24)",
 			},
 			"network_ipv6": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true,
 				ForceNew:    true,
 				Description: "The IPv6 network CIDR available within the VPC",
 			},
 			"nameservers_ipv4": {
-				Type:        schema.TypeList,
+				Type: schema.TypeList,
+				// Optional AND Computed. The platform assigns nameservers when the VPC is
+				// created and Read hydrates them, so Optional alone means any config that
+				// omits the field gets a permanent "remove these" diff on every plan.
+				// Create then plan can propose removing both entries. Computed makes
+				// an omitted field adopt the API's value.
 				Optional:    true,
+				Computed:    true,
 				Description: "IPv4 nameservers for DHCP",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"nameservers_ipv6": {
 				Type:        schema.TypeList,
 				Optional:    true,
+				Computed:    true,
 				Description: "IPv6 nameservers for DHCP",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"enable_default_snat": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				ForceNew:    true,
-				Default:     false,
-				Description: "If true, the VPC will have a default SNAT rule allowing outbound internet connectivity",
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+				Description: "If true, requests a default SNAT rule at creation time for outbound " +
+					"internet connectivity. This is a create-time convenience only -- the API has no " +
+					"persistent representation of it, so it can never be verified or recovered by " +
+					"Read/import; state simply keeps whatever value was last configured or defaulted. " +
+					"To manage SNAT rules as real, importable/driftable state, use " +
+					"netactuate_vpc_gateway_snat_rule instead.",
 			},
 			"firewall_ipv4_inbound": {
 				Type:        schema.TypeBool,
@@ -155,12 +177,22 @@ func resourceVPC() *schema.Resource {
 			"network_loadbalancer_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "The network load balancer ID for this VPC",
+				Description: "The network load balancer ID for this VPC. Empty when the API reports balancers as counts rather than identifiers.",
 			},
 			"http_loadbalancer_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "The HTTP load balancer ID for this VPC",
+				Description: "The HTTP load balancer ID for this VPC. Empty when the API reports balancers as counts rather than identifiers.",
+			},
+			"network_loadbalancer_count": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "How many network load balancers exist in this VPC.",
+			},
+			"http_loadbalancer_count": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "How many HTTP load balancers exist in this VPC.",
 			},
 		},
 	}
@@ -276,12 +308,21 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	}
 	setValue("status", vpc.Metadata.Status, d, &diags)
 
+	// The payload reports each balancer class either as a list carrying identifiers or as a
+	// count. Both are set from whichever arrived, so the id is empty rather than wrong when the
+	// platform answered with counts.
 	if vpc.LoadBalancers != nil {
-		if len(vpc.LoadBalancers.Network) > 0 {
-			setValue("network_loadbalancer_id", vpc.LoadBalancers.Network[0].NetworkLbID, d, &diags)
+		if n := vpc.LoadBalancers.Network; n != nil {
+			setValue("network_loadbalancer_count", n.Total, d, &diags)
+			if len(n.IDs) > 0 {
+				setValue("network_loadbalancer_id", n.IDs[0], d, &diags)
+			}
 		}
-		if len(vpc.LoadBalancers.HTTP) > 0 {
-			setValue("http_loadbalancer_id", vpc.LoadBalancers.HTTP[0].HTTPLbID, d, &diags)
+		if h := vpc.LoadBalancers.HTTP; h != nil {
+			setValue("http_loadbalancer_count", h.Total, d, &diags)
+			if len(h.IDs) > 0 {
+				setValue("http_loadbalancer_id", h.IDs[0], d, &diags)
+			}
 		}
 	}
 
@@ -289,6 +330,16 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	setValue("description", vpc.Metadata.Description, d, &diags)
 	setValue("location_id", vpc.Location.ID, d, &diags)
 	setLocationPreserveFormat(vpc.Location.Name, d, &diags)
+
+	if vpc.InternalNetwork != nil {
+		setValue("network_ipv4", vpc.InternalNetwork.IPv4, d, &diags)
+		setValue("network_ipv6", vpc.InternalNetwork.IPv6, d, &diags)
+	}
+
+	if vpc.DHCP != nil && vpc.DHCP.Nameservers != nil {
+		setValue("nameservers_ipv4", stripHostCIDRSuffixes(vpc.DHCP.Nameservers.IPv4), d, &diags)
+		setValue("nameservers_ipv6", stripHostCIDRSuffixes(vpc.DHCP.Nameservers.IPv6), d, &diags)
+	}
 
 	if vpc.Firewalls != nil {
 		if vpc.Firewalls.IPv4 != nil {
@@ -390,14 +441,51 @@ func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m interface{
 
 	log.Printf("[DEBUG] Deleting VPC %d", id)
 
-	if err := c.DeleteVPC(id); err != nil {
+	// A VPC whose VMs are still being torn down refuses deletion with
+	//   400 "You currently have virtual machines in this VPC so you cannot delete it."
+	// That is TRANSIENT: server deletion is a job, so the VM can be gone from Terraform's
+	// view while the platform is still detaching it. Failing immediately leaves the VPC
+	// behind and require manual cleanup.
+	//
+	// Retried for a bounded time, and only on this specific message. Any other 400 is a
+	// real error and still fails at once.
+	const vpcDeleteRetries = 12
+	const vpcDeleteInterval = 10 * time.Second
+	for attempt := 0; ; attempt++ {
+		err := c.DeleteVPC(id)
+		if err == nil {
+			return nil
+		}
 		if gona.IsV3NotFound(err) {
 			log.Printf("[WARN] VPC %d already deleted", id)
 			return nil
 		}
-		return diag.FromErr(err)
+		if !strings.Contains(err.Error(), "virtual machines in this VPC") {
+			return diag.FromErr(err)
+		}
+		if attempt >= vpcDeleteRetries-1 {
+			return diag.Errorf(
+				"VPC %d still has virtual machines after %d attempts over %s. "+
+					"Delete or detach them first: %s",
+				id, vpcDeleteRetries, time.Duration(vpcDeleteRetries)*vpcDeleteInterval, err)
+		}
+		log.Printf("[DEBUG] VPC %d still has VMs attached, retry %d/%d",
+			id, attempt+1, vpcDeleteRetries)
+		time.Sleep(vpcDeleteInterval)
 	}
-
-	return nil
 }
 
+// stripHostCIDRSuffixes drops a trailing "/32" (IPv4) or "/128" (IPv6) from
+// each address. The API returns nameservers CIDR-suffixed
+// (e.g. "192.0.2.53/32") even though a bare address like
+// "192.0.2.53" is what's configured -- setting the raw API value verbatim
+// would produce a permanent, unresolvable diff on every plan.
+func stripHostCIDRSuffixes(addrs []string) []string {
+	out := make([]string, len(addrs))
+	for i, a := range addrs {
+		a = strings.TrimSuffix(a, "/32")
+		a = strings.TrimSuffix(a, "/128")
+		out[i] = a
+	}
+	return out
+}

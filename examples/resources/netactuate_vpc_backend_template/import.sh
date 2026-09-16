@@ -1,0 +1,1 @@
+terraform import netactuate_vpc_backend_template.example 12345

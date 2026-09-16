@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -30,10 +31,30 @@ func lockRouter(id int) func() {
 
 func resourceRouter() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a cloud router.",
 		CreateContext: resourceRouterCreate,
 		ReadContext:   resourceRouterRead,
 		UpdateContext: resourceRouterUpdate,
 		DeleteContext: resourceRouterDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceRouterImport,
+		},
+		// A cloud router provisions in about five minutes. Measured on the test account:
+		// lax-test 4m59s and dfw-test 3m21s, each build step a minute or two apart.
+		//
+		// Longer than that means the build has STALLED, not that it is slow, and the
+		// timeout should surface that rather than wait it out. Two stall shapes matter:
+		// cdg-test hung between "Hardware provisioned" and "Cloud Router software
+		// updated" for 3h10m before completing the remaining steps in 97 seconds, and a
+		// test router hung between "Cloud Router connectivity established" and "Cloud
+		// Router configured" for over three hours and never completed.
+		//
+		// 15 minutes is three times the normal build and still fails fast on a stall.
+		// Operators can raise it per resource with a timeouts block if they choose.
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(15 * time.Minute),
+			Delete: schema.DefaultTimeout(30 * time.Minute),
+		},
 		Schema: map[string]*schema.Schema{
 			"router_id": {
 				Type:        schema.TypeInt,
@@ -127,13 +148,23 @@ func resourceRouter() *schema.Resource {
 	}
 }
 
-
-
 func resourceRouterRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
-	id, _ := strconv.Atoi(d.Id())
+	id, err := parseRouterID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
-	router, err := c.GetRouterConfig(id)
+	config, err := c.GetRouterConfig(id)
+	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
+		return diag.FromErr(err)
+	}
+
+	router, err := c.GetRouter(id)
 	if err != nil {
 		if gona.IsV3NotFound(err) {
 			d.SetId("")
@@ -145,15 +176,22 @@ func resourceRouterRead(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 
 	setValue("router_id", id, d, &diags)
-	setValue("name", router.Metadata.Name, d, &diags)
-	setValue("ipv4_address", router.Metadata.IPv4Address, d, &diags)
-	setValue("has_default_vrf", router.Metadata.HasDefaultVrf, d, &diags)
-	setValue("default_vrf_id", router.DefaultVrfID, d, &diags)
-	setValue("mesh_id", router.Metadata.MeshID, d, &diags)
-	setValue("status", router.Metadata.Status, d, &diags)
-	setValue("version", router.Metadata.Version, d, &diags)
-	setValue("updated_on", router.Metadata.UpdatedOn, d, &diags)
-	setValue("can_join_magic_mesh", router.Metadata.CanJoinMagicMesh, d, &diags)
+	setValue("name", config.Metadata.Name, d, &diags)
+	if router.Description != nil {
+		setValue("description", *router.Description, d, &diags)
+	}
+	setValue("ipv4_address", config.Metadata.IPv4Address, d, &diags)
+	setValue("has_default_vrf", config.Metadata.HasDefaultVrf, d, &diags)
+	setValue("default_vrf_id", config.DefaultVrfID, d, &diags)
+	setValue("mesh_id", config.Metadata.MeshID, d, &diags)
+	setValue("status", config.Metadata.Status, d, &diags)
+	if config.Metadata.Location != nil {
+		setLocationPreserveFormat(config.Metadata.Location.Name, d, &diags)
+		setValue("location_id", config.Metadata.Location.ID, d, &diags)
+	}
+	setValue("version", config.Metadata.Version, d, &diags)
+	setValue("updated_on", config.Metadata.UpdatedOn, d, &diags)
+	setValue("can_join_magic_mesh", config.Metadata.CanJoinMagicMesh, d, &diags)
 	return diags
 }
 
@@ -205,7 +243,11 @@ func resourceRouterCreate(ctx context.Context, d *schema.ResourceData, m interfa
 
 	d.SetId(strconv.Itoa(router.RouterID))
 
-	if err := c.WaitForRouterReady(router.RouterID); err != nil {
+	// Honour the resource's create timeout instead of the SDK's 10 minute default.
+	// Router provisioning on this platform is not reliably fast: one router on the test
+	// account took 3h12m to become ready. A 10 minute give-up marks a perfectly healthy
+	// router as failed, and the next apply then destroys and recreates it.
+	if err := c.WaitForRouterReadyTimeout(router.RouterID, d.Timeout(schema.TimeoutCreate)); err != nil {
 		return diag.Errorf("Router %d created but failed to become ready: %s", router.RouterID, err)
 	}
 
@@ -217,7 +259,7 @@ func resourceRouterCreate(ctx context.Context, d *schema.ResourceData, m interfa
 func resourceRouterUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	id, err := strconv.Atoi(d.Id())
+	id, err := parseRouterID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -248,7 +290,7 @@ func resourceRouterUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 func resourceRouterDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*ProviderClients).V3
 
-	id, err := strconv.Atoi(d.Id())
+	id, err := parseRouterID(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -265,4 +307,24 @@ func resourceRouterDelete(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	return nil
+}
+
+func resourceRouterImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	routerID, err := parseRouterID(d.Id())
+	if err != nil {
+		return nil, fmt.Errorf("invalid import ID %q, expected \"routerId\"", d.Id())
+	}
+
+	d.SetId(strconv.Itoa(routerID))
+	d.Set("router_id", routerID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+func parseRouterID(id string) (int, error) {
+	routerID, err := strconv.Atoi(id)
+	if err != nil {
+		return 0, fmt.Errorf("invalid router ID %q, expected \"routerId\": %w", id, err)
+	}
+	return routerID, nil
 }

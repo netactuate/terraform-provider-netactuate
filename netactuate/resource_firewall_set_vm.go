@@ -3,6 +3,7 @@ package netactuate
 import (
 	"context"
 	"fmt"
+	"github.com/netactuate/gona/gona"
 	"strconv"
 	"strings"
 
@@ -92,6 +93,14 @@ func resourceFirewallSetVMRead(ctx context.Context, d *schema.ResourceData, m in
 
 	vms, err := c.GetFirewallSetVMs(setID)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			// The parent set was deleted out of band, so this attachment cannot exist
+			// either. vAPI2 reports a missing set as a 422 on firewall_set_id rather
+			// than a 404; the SDK maps that to NotFoundError. Without this the resource
+			// hard errors on every refresh on a security resource.
+			d.SetId("")
+			return nil
+		}
 		return diag.Errorf("failed to list VMs for firewall set %d: %s", setID, err)
 	}
 

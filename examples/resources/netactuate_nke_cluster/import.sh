@@ -1,0 +1,1 @@
+terraform import netactuate_nke_cluster.example 12345

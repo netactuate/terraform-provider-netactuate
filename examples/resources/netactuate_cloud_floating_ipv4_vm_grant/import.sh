@@ -1,0 +1,1 @@
+terraform import netactuate_cloud_floating_ipv4_vm_grant.example 12345

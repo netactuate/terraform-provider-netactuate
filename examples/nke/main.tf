@@ -1,8 +1,8 @@
 provider "netactuate" {
   # API key can also be set via NETACTUATE_API_KEY environment variable
   api_key    = "NETACTUATE_API_KEY"
-  api_url    = "vAPI2_URL"  #vAPI2 URL
-  api_url_v3 = "vAPI3_URL"  #vAPI3 URL
+  api_url    = "vAPI2_URL" #vAPI2 URL
+  api_url_v3 = "vAPI3_URL" #vAPI3 URL
 }
 
 # Look up available Kubernetes versions
@@ -15,7 +15,7 @@ output "available_versions" {
 # Create an NKE (managed Kubernetes) cluster
 resource "netactuate_nke_cluster" "example" {
   name    = "test-terraform-k8s-cluster"
-  version = "1.35.0"   # or reference data.netactuate_nke_versions.available.versions[0]
+  version = "1.35.0" # or reference data.netactuate_nke_versions.available.versions[0]
 
   # Node configuration
   replicas      = 2
@@ -67,13 +67,13 @@ output "cluster_service_network" {
   value = netactuate_nke_cluster.example.service_network
 }
 
-# Kubeconfig: separate data source — each read creates a new access token
+# Kubeconfig: separate data source: each read creates a new access token
 data "netactuate_nke_kubeconfig" "kube" {
   cluster_id = netactuate_nke_cluster.example.cluster_id
   depends_on = [netactuate_nke_cluster.example]
 }
 
-# Write kubeconfig to local file — refreshes once per year, removed on destroy
+# Write kubeconfig to local file: refreshes once per year, removed on destroy
 resource "terraform_data" "kubeconfig_file" {
   input            = data.netactuate_nke_kubeconfig.kube.kubeconfig
   triggers_replace = formatdate("YYYY", plantimestamp())
@@ -95,7 +95,7 @@ resource "terraform_data" "kubeconfig_file" {
   }
 }
 
-# Worker nodes — captured once at first apply; ignore_changes suppresses constant
+# Worker nodes: captured once at first apply; ignore_changes suppresses constant
 # diffs from autoscaling events (nodes added/removed without user action needed)
 data "netactuate_nke_worker_nodes" "nodes" {
   cluster_id = netactuate_nke_cluster.example.cluster_id

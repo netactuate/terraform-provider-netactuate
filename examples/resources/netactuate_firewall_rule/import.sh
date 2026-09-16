@@ -1,0 +1,1 @@
+terraform import netactuate_firewall_rule.example 12345

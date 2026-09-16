@@ -38,12 +38,12 @@ output "worker_nodes" {
 ### Ceph RBD storage
 
 output "rbd_monitors" {
-  description = "Ceph monitor endpoints — use in the CSI ConfigMap"
+  description = "Ceph monitor endpoints: use in the CSI ConfigMap"
   value       = netactuate_storage_block_namespace.rbd.endpoints
 }
 
 output "rbd_pool" {
-  description = "Ceph RBD pool name — use in the CSI StorageClass"
+  description = "Ceph RBD pool name: use in the CSI StorageClass"
   value       = local.rbd_pool_name
 }
 
@@ -53,7 +53,7 @@ output "rbd_namespace" {
 }
 
 output "rbd_cluster_id" {
-  description = "Ceph cluster ID — use as clusterID in the CSI ConfigMap"
+  description = "Ceph cluster ID: use as clusterID in the CSI ConfigMap"
   value       = netactuate_storage_block_namespace.rbd.storage_cluster_id
 }
 

@@ -1,0 +1,1 @@
+terraform import netactuate_firewall_set_vm.example 12345

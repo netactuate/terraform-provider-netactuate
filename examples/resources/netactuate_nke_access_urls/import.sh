@@ -1,0 +1,1 @@
+terraform import netactuate_nke_access_urls.example 12345

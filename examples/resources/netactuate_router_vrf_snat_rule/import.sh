@@ -1,0 +1,1 @@
+terraform import netactuate_router_vrf_snat_rule.example 12345

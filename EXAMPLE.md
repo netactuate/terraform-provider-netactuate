@@ -62,9 +62,19 @@ Now that we've configured Terraform to use the NetActuate provider and establish
 
 ## Define SSH Key to use for server login
 ```
+variable "ssh_public_key" {
+  description = "Your SSH public key."
+  type        = string
+}
+
+variable "billing_contract_id" {
+  description = "Your usage billing contract ID."
+  type        = string
+}
+
 resource "netactuate_sshkey" "sshkey" {
   name = "default_key"
-  key  = "ssh-ed25519 REDACTED_SSH_KEY user@email.test"
+  key  = var.ssh_public_key
 }
 ```
 
@@ -76,7 +86,7 @@ resource "netactuate_server" "server" {
   location    = "SJC"
   image       = "Ubuntu 22.04 (20221110)"
   ssh_key_id  = netactuate_sshkey.sshkey.id
-  package_billing_contract_id = PROVIDED_CODE
+  package_billing_contract_id = var.billing_contract_id
 }
 ```
 > Make sure to edit: 

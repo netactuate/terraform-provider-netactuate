@@ -1,0 +1,1 @@
+terraform import netactuate_dns_record.example 12345

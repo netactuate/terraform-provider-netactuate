@@ -12,6 +12,7 @@ import (
 
 func resourceRouterIPSec() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages the router level IPsec configuration on a cloud router.",
 		CreateContext: resourceRouterIPSecCreate,
 		ReadContext:   resourceRouterIPSecRead,
 		UpdateContext: resourceRouterIPSecUpdate,

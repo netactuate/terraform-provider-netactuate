@@ -1,0 +1,1 @@
+terraform import netactuate_router_vrf_bgp.example 12345

@@ -1,0 +1,1 @@
+terraform import netactuate_vpc_gateway_dnat_rule.example 12345

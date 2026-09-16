@@ -118,7 +118,7 @@ resource "netactuate_secret_list_value" "rbd_image" {
 }
 
 ### Hypervisor-level firewall
-# Applied at the NIC level on the hypervisor — no VM rebuild required.
+# Applied at the NIC level on the hypervisor: no VM rebuild required.
 
 resource "netactuate_firewall_set" "edge" {
   name        = "pop-${lower(var.location)}-edge"
@@ -173,7 +173,7 @@ resource "netactuate_firewall_rule" "allow_icmp" {
   protocol        = "icmp"
 }
 
-# Allow WireGuard inbound — the cloud router (example 04) connects to this port
+# Allow WireGuard inbound: the cloud router (example 04) connects to this port
 resource "netactuate_firewall_rule" "allow_wireguard" {
   firewall_set_id        = netactuate_firewall_set.edge.id
   ip_version             = "IPv4"
@@ -185,7 +185,7 @@ resource "netactuate_firewall_rule" "allow_wireguard" {
   destination_port_end   = var.wireguard_port
 }
 
-# Default deny — drop everything else inbound
+# Default deny: drop everything else inbound
 resource "netactuate_firewall_rule" "deny_all" {
   firewall_set_id = netactuate_firewall_set.edge.id
   ip_version      = "IPv4"
@@ -195,7 +195,7 @@ resource "netactuate_firewall_rule" "deny_all" {
 }
 
 ### Attach firewall to VM
-# Pure API call to the hypervisor NIC — the server is NOT rebuilt.
+# Pure API call to the hypervisor NIC: the server is NOT rebuilt.
 
 resource "netactuate_firewall_set_vm" "edge" {
   firewall_set_id = netactuate_firewall_set.edge.id

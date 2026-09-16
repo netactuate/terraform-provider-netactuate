@@ -77,7 +77,6 @@ func dataSourceNKEWorkerNodesRead(ctx context.Context, d *schema.ResourceData, m
 
 	var diags diag.Diagnostics
 
-
 	var clusterLocationID int
 	if cluster, err := c.GetNKECluster(clusterID); err == nil {
 		clusterLocationID = cluster.Location.ID

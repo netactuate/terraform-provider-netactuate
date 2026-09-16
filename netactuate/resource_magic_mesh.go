@@ -75,8 +75,11 @@ func resourceMagicMeshRead(ctx context.Context, d *schema.ResourceData, m interf
 
 	mesh, err := c.GetMagicMesh(meshID)
 	if err != nil {
-		d.SetId("")
-		return nil
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
+		return diag.FromErr(err)
 	}
 
 	var diags diag.Diagnostics

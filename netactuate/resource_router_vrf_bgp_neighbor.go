@@ -23,6 +23,7 @@ func validateASN(v interface{}, k string) (warns []string, errs []error) {
 
 func resourceRouterVRFBGPNeighbor() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a BGP neighbour in a cloud router VRF.",
 		CreateContext: resourceRouterVRFBGPNeighborCreate,
 		ReadContext:   resourceRouterVRFBGPNeighborRead,
 		UpdateContext: resourceRouterVRFBGPNeighborUpdate,
@@ -300,8 +301,11 @@ func resourceRouterVRFBGPNeighborRead(ctx context.Context, d *schema.ResourceDat
 
 	neighbor, err := c.GetRouterVRFBGPNeighbor(routerID, vrfID, neighborID)
 	if err != nil {
-		d.SetId("")
-		return nil
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
+		return diag.FromErr(err)
 	}
 
 	var diags diag.Diagnostics

@@ -1,0 +1,1 @@
+terraform import netactuate_server_nic.example 12345

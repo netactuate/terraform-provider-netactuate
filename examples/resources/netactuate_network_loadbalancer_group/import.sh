@@ -1,0 +1,1 @@
+terraform import netactuate_network_loadbalancer_group.example 12345

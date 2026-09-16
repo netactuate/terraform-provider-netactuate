@@ -11,6 +11,7 @@ import (
 
 func resourceRouterNTP() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages the NTP service on a cloud router.",
 		CreateContext: resourceRouterNTPCreate,
 		ReadContext:   resourceRouterNTPRead,
 		UpdateContext: resourceRouterNTPUpdate,
@@ -197,7 +198,7 @@ func resourceRouterNTPDelete(ctx context.Context, d *schema.ResourceData, m inte
 
 	enabled := false
 	updateRequest := gona.UpdateRouterNTPConfigRequest{
-		Enabled: &enabled,
+		Enabled:   &enabled,
 		Upstreams: ntpConfig.Upstreams,
 	}
 

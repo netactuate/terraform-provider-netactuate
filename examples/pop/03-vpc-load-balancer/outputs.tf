@@ -6,7 +6,7 @@ output "vpc_id" {
 }
 
 output "bastion_ipv4" {
-  description = "Bastion gateway IPv4 address — use as SSH jump host"
+  description = "Bastion gateway IPv4 address: use as SSH jump host"
   value       = netactuate_vpc.pop.bastion_ipv4
 }
 
@@ -38,7 +38,7 @@ output "router_handoff" {
 ### Public entry points
 
 output "floating_ipv4" {
-  description = "Public anycast IPv4 — point your DNS A record here"
+  description = "Public anycast IPv4: point your DNS A record here"
   value       = netactuate_vpc_floating_ip.pub.address
 }
 
@@ -48,7 +48,7 @@ output "floating_ipv6" {
 }
 
 output "http_test_url" {
-  description = "HTTP test URL for the TCP load balancer — curl this to verify backends are reachable"
+  description = "HTTP test URL for the TCP load balancer: curl this to verify backends are reachable"
   value       = "http://${netactuate_vpc_floating_ip.pub.address}"
 }
 
@@ -88,7 +88,7 @@ output "ssh_backend_example" {
 # terraform output -json ansible_inventory | jq > inventory/pop_<location>.json
 
 output "ansible_inventory" {
-  description = "Structured Ansible inventory — backends behind bastion jump host"
+  description = "Structured Ansible inventory: backends behind bastion jump host"
   sensitive   = true
   value = {
     backends = {

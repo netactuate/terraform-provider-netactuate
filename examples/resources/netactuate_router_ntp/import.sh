@@ -1,0 +1,1 @@
+terraform import netactuate_router_ntp.example 12345

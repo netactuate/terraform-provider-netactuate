@@ -141,12 +141,12 @@ output "firewall_rule_ids" {
 # Use these outputs when filling in example 04's terraform.tfvars.
 
 output "wireguard_endpoint" {
-  description = "WireGuard endpoint for this VM — paste as wireguard_remote_endpoint in example 04"
+  description = "WireGuard endpoint for this VM: paste as wireguard_remote_endpoint in example 04"
   value       = "${netactuate_server.edge.primary_ipv4}:${var.wireguard_port}"
 }
 
 output "wireguard_setup_guide" {
-  description = "Commands to install WireGuard and generate keys on the edge VM — run before applying example 04"
+  description = "Commands to install WireGuard and generate keys on the edge VM: run before applying example 04"
   value       = <<-EOT
     # 1. SSH to VM
     ssh ubuntu@${netactuate_server.edge.primary_ipv4}
@@ -156,7 +156,7 @@ output "wireguard_setup_guide" {
     wg genkey | sudo tee /etc/wireguard/private.key | wg pubkey | sudo tee /etc/wireguard/public.key
     sudo chmod 600 /etc/wireguard/private.key
 
-    # 3. Copy this public key — paste as wireguard_remote_public_key in example 04's tfvars
+    # 3. Copy this public key: paste as wireguard_remote_public_key in example 04's tfvars
     sudo cat /etc/wireguard/public.key
 
     # 4. Apply example 04, then use its wireguard_vm_conf and bird_conf outputs to finish setup.
@@ -166,7 +166,7 @@ output "wireguard_setup_guide" {
 ### Secret store
 
 output "secret_list_id" {
-  description = "Secret list ID — reference via API to retrieve credentials without exposing them in pipelines"
+  description = "Secret list ID: reference via API to retrieve credentials without exposing them in pipelines"
   value       = netactuate_secret_list.pop.id
 }
 
@@ -184,7 +184,7 @@ output "secret_list_keys" {
 # Pipe this to: terraform output -json ansible_host_vars | jq > host_vars/edge01.json
 
 output "ansible_host_vars" {
-  description = "Structured vars for Ansible host_vars — contains all credentials needed to configure the VM"
+  description = "Structured vars for Ansible host_vars: contains all credentials needed to configure the VM"
   sensitive   = true
   value = {
     ansible_host = netactuate_server.edge.primary_ipv4

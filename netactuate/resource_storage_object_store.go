@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -138,9 +139,11 @@ func resourceStorageObjectStoreCreate(ctx context.Context, d *schema.ResourceDat
 	if v, ok := d.GetOk("capacity"); ok {
 		req.Capacity = v.(int)
 	}
-	if v := d.Get("enable_auto_scaling").(bool); v {
-		req.EnableAutoScaling = &v
-	}
+	// The schema carries an explicit default, so false is a chosen value rather than an absent
+	// one. Sending it only when true leaves the platform to apply its own default and puts an
+	// unsettleable change in every later plan.
+	autoScaling := d.Get("enable_auto_scaling").(bool)
+	req.EnableAutoScaling = &autoScaling
 
 	storeID, err := c.CreateStorageObjectStore(req)
 	if err != nil {
@@ -191,10 +194,10 @@ func resourceStorageObjectStoreRead(ctx context.Context, d *schema.ResourceData,
 	}
 	setValue("total_capacity_gb", store.Metadata.Capacity.TotalGB, d, &diags)
 	setValue("auto_scaling", store.Metadata.Capacity.AutoScaling, d, &diags)
-	setValue("endpoints", store.Credentials.Endpoints, d, &diags)
-	setValue("access_key", store.Credentials.AccessKey, d, &diags)
-	setValue("secret_key", store.Credentials.SecretKey, d, &diags)
-	setValue("user_key", store.Credentials.UserKey, d, &diags)
+	setCredentialValue("endpoints", store.Credentials.Endpoints, d, &diags)
+	setCredentialValue("access_key", store.Credentials.AccessKey, d, &diags)
+	setCredentialValue("secret_key", store.Credentials.SecretKey, d, &diags)
+	setCredentialValue("user_key", store.Credentials.UserKey, d, &diags)
 
 	return diags
 }
@@ -232,6 +235,29 @@ func resourceStorageObjectStoreUpdate(ctx context.Context, d *schema.ResourceDat
 		if err := c.UpdateStorageObjectStore(id, req); err != nil {
 			return diag.FromErr(err)
 		}
+		// An update is not instant. A capacity change is accepted with a 200 and applied
+		// over about twenty seconds, so reading straight away returns the OLD value and
+		// writes it into state: apply reports success while state disagrees with the API
+		// until some later refresh. PATCH capacity 2 can answer 200 with totalGB
+		// still 1, then report 2 twenty seconds later.
+		//
+		// Same not-ready window that delays credentials and refuses an early delete.
+		if err := c.WaitForStorageObjectStoreReady(id); err != nil {
+			return diag.Errorf("storage object store %d updated but failed to become ready: %s", id, err)
+		}
+		// ready is not enough: capacity lands after it. Wait for the value asked for.
+		if d.HasChange("capacity") {
+			want := d.Get("capacity").(int)
+			if err := waitForStorageCapacity(fmt.Sprintf("storage object store %d", id), want, func() (int, error) {
+				obj, err := c.GetStorageObjectStore(id)
+				if err != nil {
+					return 0, err
+				}
+				return obj.Metadata.Capacity.TotalGB, nil
+			}); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	return resourceStorageObjectStoreRead(ctx, d, m)
@@ -247,7 +273,7 @@ func resourceStorageObjectStoreDelete(ctx context.Context, d *schema.ResourceDat
 
 	log.Printf("[INFO] Deleting storage object store %d", id)
 
-	if err := c.DeleteStorageObjectStore(id); err != nil {
+	if err := deleteStorageWithRetry("object store "+d.Id(), func() error { return c.DeleteStorageObjectStore(id) }); err != nil {
 		if gona.IsV3NotFound(err) {
 			log.Printf("[WARN] Storage object store %d already deleted", id)
 			return nil

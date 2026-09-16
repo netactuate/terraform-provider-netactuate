@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/netactuate/gona/gona"
 )
 
@@ -72,8 +73,15 @@ func resourceHTTPLoadbalancerGroup() *schema.Resource {
 				Description: "Public IP address to match incoming traffic",
 			},
 			"match_ports": {
-				Type:        schema.TypeString,
-				Required:    true,
+				Type:     schema.TypeString,
+				Required: true,
+				// A closed set server side. Without this the API rejects the value at apply
+				// time, after the VPC and its backend VMs have already been built:
+				//   400 match.ports: "Must be one of the values within debug.allowed.ports"
+				//   debug.allowed.ports: ["80", "443", "80+443"]
+				// Checked at plan so the customer learns before anything is created.
+				ValidateDiagFunc: validation.ToDiagFunc(
+					validation.StringInSlice([]string{"80", "443", "80+443"}, false)),
 				Description: "Ports to match (80, 443, or 80+443)",
 			},
 			"is_online": {
@@ -154,14 +162,25 @@ func resourceHTTPLoadbalancerGroup() *schema.Resource {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  false,
-							// The API forces httpsRedirectEnabled=true whenever ssl_enabled=true,
-							// regardless of the requested value. Suppress the diff so that
-							// setting https_redirect_enabled=false in config with ssl_enabled=true
-							// doesn't produce a perpetual no-op plan change.
+							// The API forces httpsRedirectEnabled=true and IGNORES a false
+							// request. The original comment here said this happens only when
+							// ssl_enabled=true; that is not what the platform does. With
+							// ssl_enabled=false AND https_redirect_enabled=false in config,
+							// the provider sent both
+							// correctly, and the API returned httpsRedirectEnabled=true, so
+							// every plan afterwards showed
+							//
+							//	~ https_redirect_enabled = true -> false
+							//
+							// forever. The old suppression only covered the ssl=true case, so
+							// the ssl=false case never converged.
+							//
+							// Suppressed in the one direction that is the platform overriding
+							// the customer: state true, config false. A change from true to
+							// true or false to false is a no-op anyway, and a customer asking
+							// for TRUE still gets a real diff if the API somehow returns false.
 							DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-								prefix := k[:strings.LastIndex(k, ".")]
-								ssl, _ := d.GetOk(prefix + ".ssl_enabled")
-								return ssl.(bool)
+								return old == "true" && new == "false"
 							},
 							Description: "Whether to redirect HTTP to HTTPS",
 						},

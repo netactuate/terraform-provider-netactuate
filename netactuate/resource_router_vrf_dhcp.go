@@ -14,6 +14,7 @@ import (
 
 func resourceRouterVRFDHCP() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages the DHCP service in a cloud router VRF. The interface it serves must hold an address inside the DHCP subnet.",
 		CreateContext: resourceRouterVRFDHCPUpdate,
 		ReadContext:   resourceRouterVRFDHCPRead,
 		UpdateContext: resourceRouterVRFDHCPUpdate,

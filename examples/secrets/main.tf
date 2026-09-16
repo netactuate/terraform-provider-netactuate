@@ -1,7 +1,7 @@
 provider "netactuate" {
   # API key can also be set via NETACTUATE_API_KEY environment variable
-  api_key    = "NETACTUATE_API_KEY"
-  api_url    = "vAPI2_URL"  #vAPI2 URL
+  api_key = "NETACTUATE_API_KEY"
+  api_url = "vAPI2_URL" #vAPI2 URL
 }
 
 

@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"github.com/netactuate/gona/gona"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -50,6 +51,13 @@ func resourceSecretListRead(ctx context.Context, d *schema.ResourceData, m inter
 
 	list, err := c.GetSecretList(id)
 	if err != nil {
+		if gona.IsNotFound(err) {
+			// Deleted out of band. vAPI2 reports a missing secret as a 422 on its id
+			// field rather than a 404; the SDK maps that to NotFoundError. Without this
+			// the resource hard errors on every refresh on a credential resource.
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 
@@ -84,6 +92,10 @@ func resourceSecretListDelete(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if err := c.DeleteSecretList(id); err != nil {
+		if gona.IsNotFound(err) {
+			// Already gone, which is what a delete wants. Not an error.
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 

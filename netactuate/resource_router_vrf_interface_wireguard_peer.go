@@ -13,6 +13,7 @@ import (
 
 func resourceRouterVRFInterfaceWireguardPeer() *schema.Resource {
 	return &schema.Resource{
+		Description:   "Beta. The cloud router family is in beta: behaviour and schema may change. Manages a WireGuard peer on a cloud router VRF interface.",
 		CreateContext: resourceRouterVRFInterfaceWireguardPeerCreate,
 		ReadContext:   resourceRouterVRFInterfaceWireguardPeerRead,
 		DeleteContext: resourceRouterVRFInterfaceWireguardPeerDelete,
@@ -51,10 +52,10 @@ func resourceRouterVRFInterfaceWireguardPeer() *schema.Resource {
 				Description: "The description of the wireguard interface.",
 			},
 			"remote": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
-				Description: "The remote address of the wireguard interface.",
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				Description:  "The remote address of the wireguard interface.",
 				RequiredWith: []string{"public_key"},
 			},
 			"wireguard_peer_id": {

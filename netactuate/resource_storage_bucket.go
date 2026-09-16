@@ -2,6 +2,7 @@ package netactuate
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -144,12 +145,12 @@ func resourceStorageBucketCreate(ctx context.Context, d *schema.ResourceData, m 
 	if v, ok := d.GetOk("capacity"); ok {
 		req.Capacity = v.(int)
 	}
-	if v := d.Get("enable_auto_scaling").(bool); v {
-		req.EnableAutoScaling = &v
-	}
-	if v := d.Get("private").(bool); v {
-		req.Private = &v
-	}
+	// Both carry an explicit schema default, so false is a chosen value and must be sent.
+	// Omitting it lets the platform apply its own default and the resource never converges.
+	autoScaling := d.Get("enable_auto_scaling").(bool)
+	req.EnableAutoScaling = &autoScaling
+	private := d.Get("private").(bool)
+	req.Private = &private
 
 	bucketID, err := c.CreateStorageBucket(req)
 	if err != nil {
@@ -201,10 +202,10 @@ func resourceStorageBucketRead(ctx context.Context, d *schema.ResourceData, m in
 	}
 	setValue("total_capacity_gb", bucket.Metadata.Capacity.TotalGB, d, &diags)
 	setValue("auto_scaling", bucket.Metadata.Capacity.AutoScaling, d, &diags)
-	setValue("endpoints", bucket.Credentials.Endpoints, d, &diags)
-	setValue("access_key", bucket.Credentials.AccessKey, d, &diags)
-	setValue("secret_key", bucket.Credentials.SecretKey, d, &diags)
-	setValue("user_key", bucket.Credentials.UserKey, d, &diags)
+	setCredentialValue("endpoints", bucket.Credentials.Endpoints, d, &diags)
+	setCredentialValue("access_key", bucket.Credentials.AccessKey, d, &diags)
+	setCredentialValue("secret_key", bucket.Credentials.SecretKey, d, &diags)
+	setCredentialValue("user_key", bucket.Credentials.UserKey, d, &diags)
 
 	return diags
 }
@@ -247,6 +248,29 @@ func resourceStorageBucketUpdate(ctx context.Context, d *schema.ResourceData, m 
 		if err := c.UpdateStorageBucket(id, req); err != nil {
 			return diag.FromErr(err)
 		}
+		// An update is not instant. A capacity change is accepted with a 200 and applied
+		// over about twenty seconds, so reading straight away returns the OLD value and
+		// writes it into state: apply reports success while state disagrees with the API
+		// until some later refresh. PATCH capacity 2 can answer 200 with totalGB
+		// still 1, then report 2 twenty seconds later.
+		//
+		// Same not-ready window that delays credentials and refuses an early delete.
+		if err := c.WaitForStorageBucketReady(id); err != nil {
+			return diag.Errorf("storage bucket %d updated but failed to become ready: %s", id, err)
+		}
+		// ready is not enough: capacity lands after it. Wait for the value asked for.
+		if d.HasChange("capacity") {
+			want := d.Get("capacity").(int)
+			if err := waitForStorageCapacity(fmt.Sprintf("storage bucket %d", id), want, func() (int, error) {
+				obj, err := c.GetStorageBucket(id)
+				if err != nil {
+					return 0, err
+				}
+				return obj.Metadata.Capacity.TotalGB, nil
+			}); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	return resourceStorageBucketRead(ctx, d, m)
@@ -262,7 +286,7 @@ func resourceStorageBucketDelete(ctx context.Context, d *schema.ResourceData, m 
 
 	log.Printf("[INFO] Deleting storage bucket %d", id)
 
-	if err := c.DeleteStorageBucket(id); err != nil {
+	if err := deleteStorageWithRetry("bucket "+d.Id(), func() error { return c.DeleteStorageBucket(id) }); err != nil {
 		if gona.IsV3NotFound(err) {
 			log.Printf("[WARN] Storage bucket %d already deleted", id)
 			return nil

@@ -10,6 +10,10 @@ import (
 	"github.com/netactuate/terraform-provider-netactuate/netactuate"
 )
 
+const (
+	ProviderAddr = "registry.terraform.io/netactuate/netactuate"
+)
+
 func main() {
 	var debugMode bool
 
@@ -23,7 +27,7 @@ func main() {
 	}
 
 	if debugMode {
-		err := plugin.Debug(context.Background(), "github.com/netactuate/netactuate", opts)
+		err := plugin.Debug(context.Background(), ProviderAddr, opts)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
