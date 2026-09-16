@@ -40,8 +40,9 @@ func resolveCatalogEntry(configured string, entries []CatalogEntry) (CatalogEntr
 	return CatalogEntry{}, false
 }
 
-// locationCatalog normalizes the V2 locations catalog. A location's IATA
-// code is its one recognized alternate spelling.
+// locationCatalog normalizes the V2 locations catalog. Preserve the leading
+// display code accepted by v0.3.0 as well as the API's IATA code: they can differ
+// ("TOR - Toronto, CA" uses "yyz", "AMS - Amsterdam, NL" uses "ams2").
 func locationCatalog(c *gona.Client) ([]CatalogEntry, error) {
 	locs, err := c.GetLocations()
 	if err != nil {
@@ -49,7 +50,7 @@ func locationCatalog(c *gona.Client) ([]CatalogEntry, error) {
 	}
 	entries := make([]CatalogEntry, len(locs))
 	for i, l := range locs {
-		entries[i] = CatalogEntry{ID: l.ID, Name: l.Name, AltNames: []string{l.IATACode}}
+		entries[i] = CatalogEntry{ID: l.ID, Name: l.Name, AltNames: []string{l.IATACode, locationIATA(l.Name)}}
 	}
 	return entries, nil
 }

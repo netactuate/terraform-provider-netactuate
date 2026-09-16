@@ -18,13 +18,18 @@ var locationCatalogCache = struct {
 }{}
 
 func setCachedLocationCatalog(locations []gona.Location) {
-	index := make(map[string]int, len(locations)*2)
+	index := make(map[string]int, len(locations)*3)
 	for _, loc := range locations {
 		if loc.Name != "" {
 			index[strings.ToLower(loc.Name)] = loc.ID
 		}
 		if loc.IATACode != "" {
 			index[strings.ToLower(loc.IATACode)] = loc.ID
+		}
+		// Keep diff-time aliases in sync with locationCatalog's create-time
+		// resolver: TOR/YYZ and AMS/AMS2 identify the same catalog entries.
+		if code := locationIATA(loc.Name); code != "" {
+			index[strings.ToLower(code)] = loc.ID
 		}
 	}
 
@@ -52,6 +57,14 @@ func locationIATA(location string) string {
 }
 
 func sameLocation(a, b string) bool {
+	// Provider configuration populates the catalog before planning/refresh.
+	// Prefix comparison alone cannot recognize TOR and YYZ as equivalent and
+	// would turn an alias-only edit into a server rebuild.
+	if aID, aOK := resolveCachedLocationID(a); aOK {
+		if bID, bOK := resolveCachedLocationID(b); bOK {
+			return aID == bID
+		}
+	}
 	ia, ib := locationIATA(a), locationIATA(b)
 	return ia != "" && ib != "" && ia == ib
 }

@@ -46,6 +46,7 @@ var (
 
 func resourceServer() *schema.Resource {
 	locationSchema, locationIDSchema := serverLocationPair.Schemas()
+	locationSchema.Description = "Deployment location: display code (e.g. TOR or AMS), full catalog name, or API IATA code. Names are matched case-insensitively."
 	imageSchema, imageIDSchema := serverImagePair.Schemas()
 
 	return &schema.Resource{
@@ -703,10 +704,8 @@ func wait4JobStatus(command string, jobID int, client *gona.Client) diag.Diagnos
 // getParams resolves the server's location and image config (whichever form
 // -- name or id -- is set) into concrete API ids, via the shared CatalogRef
 // abstraction (catalogref.go). Replaces this file's own former getLocation/
-// getImageByName, which independently duplicated helper.go's getLocationID
-// with a subtly different (narrower, no-IATA-code, first-token-only)
-// matching rule; CatalogRef's resolveCatalogEntry is now the single matching
-// rule shared by every name/id pair in the provider.
+// getImageByName. locationCatalog retains the former server resolver's display
+// code aliases alongside full names and API IATA codes.
 func getParams(d *schema.ResourceData, client *gona.Client) (int, int, diag.Diagnostics) {
 	var diags diag.Diagnostics
 

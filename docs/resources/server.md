@@ -34,7 +34,7 @@ resource "netactuate_server" "example" {
 - `cloud_pool_id` (Number) Cloud pool ID
 - `image` (String) Value sent to the NetActuate API for this field.
 - `image_id` (Number) Value sent to the NetActuate API for this field.
-- `location` (String) Value sent to the NetActuate API for this field.
+- `location` (String) Deployment location: display code (e.g. TOR or AMS), full catalog name, or API IATA code. Names are matched case-insensitively.
 - `location_id` (Number) Value sent to the NetActuate API for this field.
 - `package_billing` (String) Not recoverable on import: the API's server-read endpoint has no field reflecting the current billing mode, so this stays at its default ("usage") after `terraform import` regardless of the live server's actual billing configuration.
 - `package_billing_contract_id` (String) Value sent to the NetActuate API for this field.
