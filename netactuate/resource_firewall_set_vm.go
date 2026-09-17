@@ -136,6 +136,19 @@ func resourceFirewallSetVMDelete(ctx context.Context, d *schema.ResourceData, m 
 	}
 
 	if err := c.DetachFirewallSetVM(setID, mbpkgid); err != nil {
+		// Detaching a relation that is already gone can error (the platform
+		// returns 500 for an already-detached VM), so a delete must confirm
+		// membership before surfacing that: if the VM is no longer attached to
+		// the set, the relation is gone and delete is done. This keeps destroy
+		// and re-apply idempotent.
+		if vms, listErr := c.GetFirewallSetVMs(setID); listErr == nil {
+			for _, vm := range vms {
+				if vm.Mbpkgid == mbpkgid {
+					return diag.Errorf("failed to detach VM %d from firewall set %d: %s", mbpkgid, setID, err)
+				}
+			}
+			return nil
+		}
 		return diag.Errorf("failed to detach VM %d from firewall set %d: %s", mbpkgid, setID, err)
 	}
 

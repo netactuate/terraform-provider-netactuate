@@ -95,7 +95,8 @@ func resourceVPC() *schema.Resource {
 				Description: "The IPv6 network CIDR available within the VPC",
 			},
 			"nameservers_ipv4": {
-				Type: schema.TypeList,
+				Type:     schema.TypeList,
+				ForceNew: true,
 				// Optional AND Computed. The platform assigns nameservers when the VPC is
 				// created and Read hydrates them, so Optional alone means any config that
 				// omits the field gets a permanent "remove these" diff on every plan.
@@ -108,6 +109,7 @@ func resourceVPC() *schema.Resource {
 			},
 			"nameservers_ipv6": {
 				Type:        schema.TypeList,
+				ForceNew:    true,
 				Optional:    true,
 				Computed:    true,
 				Description: "IPv6 nameservers for DHCP",

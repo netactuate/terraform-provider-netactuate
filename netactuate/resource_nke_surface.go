@@ -105,7 +105,11 @@ func resourceNKEWorkerNodeUpdate(ctx context.Context, d *schema.ResourceData, m 
 		return diag.FromErr(err)
 	}
 	d.SetId(fmt.Sprintf("%d/%d", clusterID, workerNodeID))
-	return setNKEWorkerNodeState(d, node)
+	// The PATCH response is minimal, so read the node back rather than trusting
+	// it. Otherwise a value changed in the same apply is not available to
+	// outputs or downstream resources until the next refresh.
+	_ = node
+	return resourceNKEWorkerNodeRead(ctx, d, m)
 }
 
 func resourceNKEWorkerNodeRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

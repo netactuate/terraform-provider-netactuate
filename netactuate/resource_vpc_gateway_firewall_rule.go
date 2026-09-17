@@ -43,10 +43,14 @@ func resourceVPCGatewayFirewallRule() *schema.Resource {
 				Description:      "IP version for this rule (4 or 6)",
 			},
 			"direction": {
-				Type:             schema.TypeString,
-				Required:         true,
-				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"inbound", "outbound"}, false)),
-				Description:      "Traffic direction (inbound or outbound)",
+				Type:     schema.TypeString,
+				Required: true,
+				// Only inbound is honored. Outbound is present in some API docs but
+				// never takes effect, confirmed against the platform and the portal,
+				// so accepting it would let a config request filtering that silently
+				// does nothing.
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"inbound"}, false)),
+				Description:      "Traffic direction. Only inbound is supported.",
 			},
 			"protocol": {
 				Type:             schema.TypeString,

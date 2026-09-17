@@ -43,9 +43,18 @@ func stringsToNameservers(values []interface{}) []gona.VPCNameserver {
 func flattenNameservers(values []gona.VPCNameserver) []string {
 	out := make([]string, len(values))
 	for i, value := range values {
-		out[i] = value.Server
+		out[i] = normalizeNameserver(value.Server)
 	}
 	return out
+}
+
+// normalizeNameserver strips the default host mask the platform appends to a bare
+// nameserver address (/32 for IPv4, /128 for IPv6). Without this a bare-IP
+// configuration reads back as CIDR and the plan never settles.
+func normalizeNameserver(server string) string {
+	server = strings.TrimSuffix(server, "/32")
+	server = strings.TrimSuffix(server, "/128")
+	return server
 }
 
 func parseSurfaceTwoPartID(id, want string) (int, int, error) {

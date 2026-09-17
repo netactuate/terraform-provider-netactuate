@@ -81,6 +81,14 @@ func resourceVPCStandbyGateway() *schema.Resource {
 }
 
 func resourceVPCStandbyGatewayCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// The platform does not implement standby gateways yet: the API returns a
+	// generic 500 for any input. Refuse with a clear message rather than letting
+	// a customer submit a request that can only fail obscurely. Remove this guard
+	// once the endpoint works, and restore the AddVPCStandbyGateway call below.
+	return diag.Errorf("netactuate_vpc_gateway_standby is not implemented on the platform yet; do not configure it")
+}
+
+func resourceVPCStandbyGatewayCreateWhenImplemented(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	vpcID := d.Get("vpc_id").(int)
 	if err := m.(*ProviderClients).V3.AddVPCStandbyGateway(vpcID); err != nil {
 		return diag.FromErr(err)
