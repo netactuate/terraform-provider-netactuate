@@ -1,6 +1,7 @@
 package netactuate
 
 import (
+	"github.com/netactuate/gona/gona"
 	"strconv"
 	"testing"
 
@@ -44,9 +45,11 @@ func TestCatalogRefSuppressNameDiffDefaultsToEqualFold(t *testing.T) {
 // A custom SameName (e.g. an IATA-aware matcher) must be used instead of the
 // EqualFold default when provided.
 func TestCatalogRefSuppressNameDiffUsesCustomSameName(t *testing.T) {
+	setCachedLocationCatalog([]gona.Location{{ID: 1, Name: "RDU - Raleigh, NC", IATACode: "rdu"}})
+	t.Cleanup(func() { setCachedLocationCatalog(nil) })
 	r := CatalogRef{NameField: "location", IDField: "location_id", SameName: sameLocation}
 	if !r.suppressNameDiff("location", "RDU - Raleigh, NC", "RDU", nil) {
-		t.Fatal("expected the custom SameName (sameLocation) to match an IATA code against a leading display name")
+		t.Fatal("expected a code that resolves to the same location to suppress the diff")
 	}
 	if r.suppressNameDiff("location", "RDU - Raleigh, NC", "LGA", nil) {
 		t.Fatal("expected the custom SameName to reject a genuinely different location")
@@ -265,6 +268,8 @@ func TestCatalogRefHydrateWritesIDUnconditionally(t *testing.T) {
 // already denotes the same entry as the API's value, keep the user's
 // spelling rather than overwriting it every read.
 func TestCatalogRefHydratePreservesEquivalentUserSpelling(t *testing.T) {
+	setCachedLocationCatalog([]gona.Location{{ID: 236, Name: "RDU - Raleigh, NC", IATACode: "rdu"}})
+	t.Cleanup(func() { setCachedLocationCatalog(nil) })
 	r := CatalogRef{NameField: "location", IDField: "location_id", SameName: sameLocation}
 	d := resourceVPC().Data(&terraform.InstanceState{
 		ID: "1",

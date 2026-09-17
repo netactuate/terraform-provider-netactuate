@@ -27,17 +27,29 @@ type CatalogFetcher func() ([]CatalogEntry, error)
 // configured, case-insensitively. This is the one matching rule for every
 // name/id pair in the provider, so every resolver matches identically.
 func resolveCatalogEntry(configured string, entries []CatalogEntry) (CatalogEntry, bool) {
+	// An exact full-name match wins outright: a name is the unambiguous spelling.
+	// Otherwise gather every entry an alt-name matches and accept it only when a
+	// single distinct id results. A string that matches more than one id (a
+	// shared location code, or a duplicated catalog name) resolves to nothing
+	// rather than to whichever entry happened to come first, so it is never a
+	// silent wrong answer.
+	var match CatalogEntry
+	found := false
 	for _, e := range entries {
 		if strings.EqualFold(e.Name, configured) {
 			return e, true
 		}
 		for _, alt := range e.AltNames {
 			if strings.EqualFold(alt, configured) {
-				return e, true
+				if found && match.ID != e.ID {
+					return CatalogEntry{}, false
+				}
+				match, found = e, true
+				break
 			}
 		}
 	}
-	return CatalogEntry{}, false
+	return match, found
 }
 
 // locationCatalog normalizes the V2 locations catalog. Preserve the leading
@@ -48,9 +60,25 @@ func locationCatalog(c *gona.Client) ([]CatalogEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Create-time resolution must accept exactly the aliases diff-time resolution
+	// does, so both are derived from the same uniqueness index: an IATA code or
+	// display code is an alias only when it identifies one location. A code shared
+	// by several locations is left off, so it fails to resolve rather than picking
+	// one, and such a location is reached by its full name or its id.
+	index := locationResolutionIndex(locs)
 	entries := make([]CatalogEntry, len(locs))
 	for i, l := range locs {
-		entries[i] = CatalogEntry{ID: l.ID, Name: l.Name, AltNames: []string{l.IATACode, locationIATA(l.Name)}}
+		var alts []string
+		for _, cand := range []string{l.IATACode, locationIATA(l.Name)} {
+			key := strings.ToLower(strings.TrimSpace(cand))
+			if key == "" {
+				continue
+			}
+			if id, ok := index[key]; ok && id == l.ID {
+				alts = append(alts, cand)
+			}
+		}
+		entries[i] = CatalogEntry{ID: l.ID, Name: l.Name, AltNames: alts}
 	}
 	return entries, nil
 }

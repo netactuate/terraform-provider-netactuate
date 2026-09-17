@@ -17,22 +17,47 @@ var locationCatalogCache = struct {
 	index map[string]int
 }{}
 
-func setCachedLocationCatalog(locations []gona.Location) {
-	index := make(map[string]int, len(locations)*3)
+// locationResolutionIndex maps every string that unambiguously identifies one
+// location to its id: every full name, plus every IATA code and display code
+// that maps to exactly one location. A code shared by more than one location is
+// omitted, so it never resolves to a silently chosen site.
+//
+// The live catalog really does share codes: IATA "rdu" belongs to both
+// "RDU - Raleigh, NC" (236) and "VR Corp - RDU, NC" (353), and display code
+// "VR" belongs to three VR Corp entries. Keying on a shared code and taking
+// whichever won a map write would deploy a server to the wrong datacenter, so
+// a shared code resolves to nothing and must be pinned by full name or id.
+func locationResolutionIndex(locations []gona.Location) map[string]int {
+	idsByKey := make(map[string]map[int]struct{}, len(locations)*3)
+	add := func(key string, id int) {
+		key = strings.ToLower(strings.TrimSpace(key))
+		if key == "" {
+			return
+		}
+		if idsByKey[key] == nil {
+			idsByKey[key] = make(map[int]struct{}, 1)
+		}
+		idsByKey[key][id] = struct{}{}
+	}
 	for _, loc := range locations {
-		if loc.Name != "" {
-			index[strings.ToLower(loc.Name)] = loc.ID
+		add(loc.Name, loc.ID)
+		add(loc.IATACode, loc.ID)
+		add(locationIATA(loc.Name), loc.ID)
+	}
+	index := make(map[string]int, len(idsByKey))
+	for key, ids := range idsByKey {
+		if len(ids) != 1 {
+			continue
 		}
-		if loc.IATACode != "" {
-			index[strings.ToLower(loc.IATACode)] = loc.ID
-		}
-		// Keep diff-time aliases in sync with locationCatalog's create-time
-		// resolver: TOR/YYZ and AMS/AMS2 identify the same catalog entries.
-		if code := locationIATA(loc.Name); code != "" {
-			index[strings.ToLower(code)] = loc.ID
+		for id := range ids {
+			index[key] = id
 		}
 	}
+	return index
+}
 
+func setCachedLocationCatalog(locations []gona.Location) {
+	index := locationResolutionIndex(locations)
 	locationCatalogCache.Lock()
 	locationCatalogCache.index = index
 	locationCatalogCache.Unlock()
@@ -57,16 +82,19 @@ func locationIATA(location string) string {
 }
 
 func sameLocation(a, b string) bool {
-	// Provider configuration populates the catalog before planning/refresh.
-	// Prefix comparison alone cannot recognize TOR and YYZ as equivalent and
-	// would turn an alias-only edit into a server rebuild.
+	// Provider configuration populates the catalog before planning/refresh, so
+	// two spellings that resolve to the same id are the same location (TOR and
+	// YYZ both resolve to Toronto). When either side cannot be resolved
+	// unambiguously, fall back to exact string equality rather than an IATA
+	// prefix: a prefix match would wrongly equate two locations that share a
+	// code (the two Raleigh sites both key on "rdu") and could either collapse
+	// distinct locations or force a needless rebuild.
 	if aID, aOK := resolveCachedLocationID(a); aOK {
 		if bID, bOK := resolveCachedLocationID(b); bOK {
 			return aID == bID
 		}
 	}
-	ia, ib := locationIATA(a), locationIATA(b)
-	return ia != "" && ib != "" && ia == ib
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
 }
 
 func setLocationPreserveFormat(apiLocation string, d *schema.ResourceData, diags *diag.Diagnostics) {

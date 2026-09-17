@@ -23,8 +23,14 @@ func vpcLocationData(t *testing.T, id, location string, locationID int) *schema.
 // A location whose display name leads with its IATA code round-trips through
 // sameLocation, so this path must keep working without consulting location_id.
 func TestSuppressLocationDiffMatchesLeadingIATACode(t *testing.T) {
+	// Resolution consults the catalog the provider loads at configure time. A
+	// code that resolves to the same location as the API name is the same
+	// location; the removed IATA-prefix shortcut could not tell that apart from
+	// two sites that merely share a code.
+	setCachedLocationCatalog([]gona.Location{{ID: 1, Name: "YYZ - Toronto, ON", IATACode: "yyz"}})
+	t.Cleanup(func() { setCachedLocationCatalog(nil) })
 	if !suppressLocationDiff("location", "YYZ - Toronto, ON", "YYZ", nil) {
-		t.Fatal("expected a display name leading with the configured IATA code to suppress the diff")
+		t.Fatal("expected a code that resolves to the same location to suppress the diff")
 	}
 }
 
