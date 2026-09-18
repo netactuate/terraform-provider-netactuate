@@ -90,13 +90,7 @@ func resourceBGPGroupRead(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceBGPGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	id := d.Id()
-	d.SetId("")
-	return diag.Diagnostics{{
-		Severity: diag.Warning,
-		Summary:  "BGP group remains on the account",
-		Detail:   "The NetActuate API has no delete endpoint for BGP groups. Terraform removed BGP group " + id + " from state, but the group remains on the account and must be released through support.",
-	}}
+	return diag.Errorf("deleting a BGP group is not supported: the NetActuate API has no delete endpoint for BGP group %s. Release it through support, then remove it from state with `terraform state rm`.", d.Id())
 }
 
 func setBGPGroupState(group *gona.BGPGroup, d *schema.ResourceData, diags *diag.Diagnostics) {
