@@ -47,7 +47,8 @@ func resourceVPCBackendTemplate() *schema.Resource {
 			"backend_host": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "Backend hosts in this template",
+				Computed:    true,
+				Description: "Backend hosts in this template. Leave unset to let a separate netactuate_vpc_backend_template_backends resource manage them without drift.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"backend_host_id": {

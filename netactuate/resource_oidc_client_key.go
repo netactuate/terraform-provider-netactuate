@@ -103,6 +103,13 @@ func resourceOIDCClientKeyRead(ctx context.Context, d *schema.ResourceData, m in
 
 	for _, key := range keys {
 		if key.KeyID == keyID {
+			if key.RevokedOn != "" {
+				// The key has been revoked out of band and is defunct; drop it from
+				// state so a plan recreates it rather than treating it as current.
+				log.Printf("[WARN] OIDC client %d key %d is revoked, removing from state", clientID, keyID)
+				d.SetId("")
+				return nil
+			}
 			var diags diag.Diagnostics
 			setValue("oidc_client_id", clientID, d, &diags)
 			for attr, value := range flattenOIDCKey(key) {
