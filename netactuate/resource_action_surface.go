@@ -17,7 +17,9 @@ func resourceRouterRoutingView() *schema.Resource {
 		ReadContext:   resourceRouterRoutingViewReadPost,
 		UpdateContext: resourceRouterRoutingViewReadPost,
 		DeleteContext: resourceRouterRoutingViewDelete,
-		Importer:      &schema.ResourceImporter{StateContext: schema.ImportStatePassthroughContext},
+		// No Importer: routing_view is a query action whose required "view" request
+		// list has no server-side identity to import from, so a passthrough import
+		// would leave Read unable to reconstruct the request. Import is unsupported.
 		Schema: map[string]*schema.Schema{
 			"router_id": {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "Cloud router ID."},
 			"vrf_id":    {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "VRF ID."},
@@ -42,6 +44,13 @@ func resourceRouterRoutingViewReadPost(ctx context.Context, d *schema.ResourceDa
 	}
 	result, err := m.(*ProviderClients).V3.GetRouterRoutingViews(routerID, vrfID, req)
 	if err != nil {
+		// On refresh (the resource already has an id) a 404 means the router or VRF
+		// is gone, so the routing view is gone too: clear it from state. On create or
+		// update (no id yet) a 404 is a real failure and must surface.
+		if d.Id() != "" && gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
 		return diag.FromErr(err)
 	}
 	out, err := compactSurfaceJSON(result)

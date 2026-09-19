@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func TestBGPGroupDeleteWarnsAndClearsState(t *testing.T) {
+func TestBGPGroupDeleteErrors(t *testing.T) {
 	d := schema.TestResourceDataRaw(t, resourceBGPGroup().Schema, map[string]interface{}{
 		"name":        "edge",
 		"description": "edge group",
@@ -17,7 +17,17 @@ func TestBGPGroupDeleteWarnsAndClearsState(t *testing.T) {
 	d.SetId("42")
 
 	diags := resourceBGPGroupDelete(context.Background(), d, nil)
-	assertCreateOnlyDeleteWarning(t, d, diags, "group remains")
+	if !diags.HasError() {
+		t.Fatalf("expected an error diagnostic, got %#v", diags)
+	}
+	if !strings.Contains(strings.ToLower(diags[0].Summary), "not supported") {
+		t.Fatalf("expected the error to explain delete is not supported, got %q", diags[0].Summary)
+	}
+	// The API has no delete endpoint for a BGP group, so a failed delete must
+	// leave the id in state: the group still exists and is released through support.
+	if d.Id() == "" {
+		t.Fatalf("expected the state id to be preserved on a failed delete")
+	}
 }
 
 func TestBGPPrefixPurchaseDeleteWarnsAndClearsState(t *testing.T) {

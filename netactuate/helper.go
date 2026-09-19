@@ -266,6 +266,87 @@ func getPackageID(planName string, c *gona.Client) (int, *diag.Diagnostic) {
 	return 0, &notFound
 }
 
+// A cloud router POSTs its configuration bundle to the VyOS control plane while
+// it provisions, and a plan with less than 2 GB of RAM or fewer than 2 vCPUs
+// cannot complete that step inside the platform's provisioning window: the build
+// stalls and can orphan the underlying VM. Refuse an undersized plan before the
+// router is created rather than let it fail halfway.
+const (
+	routerMinRAMMB = 2048
+	routerMinCPU   = 2
+)
+
+// ramStringToMB parses a size string as returned by the size catalog ("1024MB",
+// "1GB", "2GB") into megabytes. ok=false for an empty or unrecognised string so
+// the caller can decline to judge rather than guess.
+func ramStringToMB(ram string) (int, bool) {
+	s := strings.ToUpper(strings.TrimSpace(ram))
+	if s == "" {
+		return 0, false
+	}
+	mult := 1
+	switch {
+	case strings.HasSuffix(s, "GB"):
+		mult, s = 1024, strings.TrimSuffix(s, "GB")
+	case strings.HasSuffix(s, "MB"):
+		s = strings.TrimSuffix(s, "MB")
+	case strings.HasSuffix(s, "G"):
+		mult, s = 1024, strings.TrimSuffix(s, "G")
+	case strings.HasSuffix(s, "M"):
+		s = strings.TrimSuffix(s, "M")
+	}
+	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil {
+		return 0, false
+	}
+	return int(f * float64(mult)), true
+}
+
+// ipVersionFromNetwork infers the IP version (4 or 6) from a CIDR or address
+// string, returning 0 when it cannot tell. The router NAT rule API does not
+// return ipVersion on read, so on import (where there is no prior state or
+// config) the version is recovered from the rule's own match network.
+func ipVersionFromNetwork(s string) int {
+	if strings.Contains(s, ":") {
+		return 6
+	}
+	if strings.Contains(s, ".") {
+		return 4
+	}
+	return 0
+}
+
+// validateRouterPlanSize refuses a router plan below the minimum that can build
+// successfully (2 GB RAM, 2 vCPU), looking the plan up in the size catalog by
+// package ID. A plan it cannot find or whose RAM it cannot parse is allowed
+// through: the gate blocks only a plan it can prove is undersized, so a catalog
+// hiccup or a custom plan never blocks a legitimate deploy.
+func validateRouterPlanSize(packageID int, planName string, c *gona.Client) *diag.Diagnostic {
+	sizes, err := c.GetSizes()
+	if err != nil {
+		return nil
+	}
+	for _, s := range sizes {
+		if s.PlanID != packageID {
+			continue
+		}
+		ramMB, ok := ramStringToMB(s.RAM)
+		if !ok {
+			return nil
+		}
+		if ramMB < routerMinRAMMB || s.CPU < routerMinCPU {
+			label := planName
+			if label == "" {
+				label = s.Plan
+			}
+			d := diag.Errorf("plan %q (%s RAM, %d vCPU) is too small for a cloud router: routers require at least %d GB RAM and %d vCPU to build successfully. Choose a larger plan, for example VR2x2x25.", label, s.RAM, s.CPU, routerMinRAMMB/1024, routerMinCPU)[0]
+			return &d
+		}
+		return nil
+	}
+	return nil
+}
+
 // NetActuate VR plan names encode size as VR{MEM}x{CPU}x{DISK}
 // (mem in GB, cpu cores, disk in GB), e.g. VR2x4x80.
 var planSpecRe = regexp.MustCompile(`(?i)^\s*VR(\d+)x(\d+)x(\d+)\s*$`)

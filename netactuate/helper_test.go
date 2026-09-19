@@ -290,3 +290,26 @@ func TestTagsCurrentlyTrackedFalseWhenStateHasNoValue(t *testing.T) {
 		t.Fatal("expected tagsCurrentlyTracked to be false when prior state never had a tags value")
 	}
 }
+
+func TestRamStringToMB(t *testing.T) {
+	cases := []struct {
+		in      string
+		want    int
+		wantOK  bool
+	}{
+		{"1024MB", 1024, true},
+		{"1GB", 1024, true},
+		{"2GB", 2048, true},
+		{"512MB", 512, true},
+		{" 2 GB ", 2048, true},
+		{"1.5GB", 1536, true},
+		{"", 0, false},
+		{"lots", 0, false},
+	}
+	for _, c := range cases {
+		got, ok := ramStringToMB(c.in)
+		if ok != c.wantOK || (ok && got != c.want) {
+			t.Errorf("ramStringToMB(%q) = (%d,%v), want (%d,%v)", c.in, got, ok, c.want, c.wantOK)
+		}
+	}
+}

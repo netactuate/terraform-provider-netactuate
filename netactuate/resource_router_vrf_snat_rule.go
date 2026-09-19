@@ -260,6 +260,12 @@ func resourceRouterVRFSNATRuleRead(ctx context.Context, d *schema.ResourceData, 
 	if rule.IPVersion != 0 {
 		ipVersion = rule.IPVersion
 	}
+	if ipVersion == 0 && rule.Match != nil {
+		ipVersion = ipVersionFromNetwork(rule.Match.Network)
+	}
+	if ipVersion == 0 && rule.Translation != nil {
+		ipVersion = ipVersionFromNetwork(rule.Translation.Network)
+	}
 
 	var diags diag.Diagnostics
 

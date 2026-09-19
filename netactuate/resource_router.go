@@ -224,6 +224,10 @@ func resourceRouterCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		}
 	}
 
+	if planDiag := validateRouterPlanSize(packageID, d.Get("plan").(string), v2); planDiag != nil {
+		return diag.Diagnostics{*planDiag}
+	}
+
 	name := d.Get("name").(string)
 	description := d.Get("description").(string)
 

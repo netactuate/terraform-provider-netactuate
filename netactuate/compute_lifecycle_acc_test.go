@@ -164,7 +164,6 @@ func TestAccNetactuateServerOptionsLifecycle(t *testing.T) {
 				"NETACTUATE_ACC_PLAN",
 				"NETACTUATE_ACC_CONTRACT_ID",
 				"NETACTUATE_ACC_SERVER_PASSWORD",
-				"NETACTUATE_ACC_KERNEL_ID",
 			)
 		},
 		ProviderFactories: testAccProviderFactories,
@@ -195,7 +194,6 @@ func TestAccNetactuateServerOptionsOutOfBandDeleteIdempotent(t *testing.T) {
 				"NETACTUATE_ACC_PLAN",
 				"NETACTUATE_ACC_CONTRACT_ID",
 				"NETACTUATE_ACC_SERVER_PASSWORD",
-				"NETACTUATE_ACC_KERNEL_ID",
 			)
 		},
 		ProviderFactories: testAccProviderFactories,
@@ -334,9 +332,12 @@ func testAccComputeServerOptionsConfig(name string, locationID, imageID int, pla
 		fqdn = name + "-u.e.invalid"
 	}
 	return testAccServerNICConfigNoNIC(name+".e.invalid", locationID, imageID, plan, contractID, password) + fmt.Sprintf(`
+data "netactuate_cloud_kernels" "test" {}
+
 resource "netactuate_server_options" "test" {
-  mbpkgid = netactuate_server.test.id
-  fqdn    = %q
+  mbpkgid   = netactuate_server.test.id
+  fqdn      = %q
+  kernel_id = data.netactuate_cloud_kernels.test.kernels[0].kernel_id
 }
 `, fqdn)
 }

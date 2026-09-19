@@ -226,11 +226,8 @@ func TestAccNetactuateRouterRoutingView_importAndOutOfBandDelete(t *testing.T) {
 					testAccCheckRouterRoutingViewAPI("netactuate_router_routing_view.test"),
 				),
 			},
-			{
-				ResourceName:      "netactuate_router_routing_view.test",
-				ImportState:       true,
-				ImportStateVerify: true,
-			},
+			// routing_view is a query action with no importable server-side identity
+			// (see resourceRouterRoutingView), so there is no import step to verify.
 			{
 				PreConfig: func() {
 					clients := testAccClients()
