@@ -19,8 +19,14 @@ func dataSourceSecretListValues() *schema.Resource {
 				Description: "Secret list ID whose values will be listed",
 			},
 			"values": {
-				Type:        schema.TypeList,
-				Computed:    true,
+				Type:     schema.TypeList,
+				Computed: true,
+				// The whole list is marked sensitive. SDKv2 drops the nested
+				// per-field Sensitive flag on a Computed-only TypeList (it becomes
+				// a cty object attribute with no per-field sensitivity), so the
+				// secret values would otherwise render in cleartext in plan, show
+				// and state. See provider_sensitive_shape_test.go.
+				Sensitive:   true,
 				Description: "List of values in the secret list",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -63,8 +69,12 @@ func dataSourceSecretValues() *schema.Resource {
 
 func secretValuesSchema(description string) *schema.Schema {
 	return &schema.Schema{
-		Type:        schema.TypeList,
-		Computed:    true,
+		Type:     schema.TypeList,
+		Computed: true,
+		// Marked sensitive at the list level on purpose: a Computed-only TypeList
+		// silently discards the nested secret_value Sensitive flag in SDKv2, so the
+		// only place the flag survives is here. See provider_sensitive_shape_test.go.
+		Sensitive:   true,
 		Description: description,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{

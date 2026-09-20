@@ -18,8 +18,13 @@ func dataSourceOIDCClientKeys() *schema.Resource {
 				Description: "OIDC client ID",
 			},
 			"keys": {
-				Type:        schema.TypeList,
-				Computed:    true,
+				Type:     schema.TypeList,
+				Computed: true,
+				// Marked sensitive at the list level: a Computed-only TypeList drops
+				// the nested per-field Sensitive flag in SDKv2, so the only way to
+				// protect the sensitive element fields is here. See
+				// provider_sensitive_shape_test.go.
+				Sensitive:   true,
 				Description: "Keys attached to the OIDC client",
 				Elem: &schema.Resource{
 					Schema: oidcKeyElementSchema(),

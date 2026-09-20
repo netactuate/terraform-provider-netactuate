@@ -13,8 +13,13 @@ func dataSourceStorageBlockVolumes() *schema.Resource {
 		ReadContext: dataSourceStorageBlockVolumesRead,
 		Schema: map[string]*schema.Schema{
 			"block_volumes": {
-				Type:        schema.TypeList,
-				Computed:    true,
+				Type:     schema.TypeList,
+				Computed: true,
+				// Marked sensitive at the list level: this list carries nested
+				// volume credentials, and a Computed-only TypeList drops nested
+				// per-field Sensitive flags in SDKv2, so the credentials would
+				// otherwise render in cleartext. See provider_sensitive_shape_test.go.
+				Sensitive:   true,
 				Description: "List of storage block volumes visible to the account",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
