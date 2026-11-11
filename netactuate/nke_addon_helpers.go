@@ -13,6 +13,7 @@ import (
 const (
 	nkeDNSAddonType     = "netactuate-dns"
 	nkeStorageAddonType = "storage"
+	nkeVPCLBAddonType   = "netactuate-cloud-lb"
 )
 
 func nkeAddonStateID(clusterID int, addonType string) string {

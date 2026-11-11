@@ -27,17 +27,15 @@ locals {
 
 ### VPC
 # Private network with bastion gateway. SNAT provides outbound internet access
-# for the backend VMs. Inbound firewalls are enabled so we can attach rules below.
+# for the backend VMs. The inbound firewall is turned on below, after its rules.
 
 resource "netactuate_vpc" "pop" {
-  label                 = "pop-${lower(var.location)}"
-  description           = "PoP VPC at ${var.location}: private backend + load balancer"
-  location              = var.location
-  network_ipv4          = var.vpc_network_ipv4
-  enable_default_snat   = true
-  firewall_ipv4_inbound = true
-  firewall_ipv6_inbound = true
-  bastion_port          = 22
+  label               = "pop-${lower(var.location)}"
+  description         = "PoP VPC at ${var.location}: private backend + load balancer"
+  location            = var.location
+  network_ipv4        = var.vpc_network_ipv4
+  enable_default_snat = true
+  bastion_port        = 22
 }
 
 ### Enable SSH key on VPC bastion
@@ -180,6 +178,19 @@ resource "netactuate_vpc_gateway_firewall_rule" "allow_icmp" {
   direction   = "inbound"
   protocol    = "ICMP"
   description = "Allow ICMP for monitoring"
+}
+
+# Turn the IPv4 inbound firewall on once its rules exist.
+resource "netactuate_vpc_inbound_firewall" "pop" {
+  vpc_id = netactuate_vpc.pop.vpc_id
+  ipv4   = true
+  ipv6   = false
+
+  depends_on = [
+    netactuate_vpc_gateway_firewall_rule.allow_http,
+    netactuate_vpc_gateway_firewall_rule.allow_ssh,
+    netactuate_vpc_gateway_firewall_rule.allow_icmp,
+  ]
 }
 
 ### SNAT rule: backend subnet outbound

@@ -17,12 +17,7 @@ func dataSourceNKEKubeconfig() *schema.Resource {
 				Required:    true,
 				Description: "The ID of the NKE cluster",
 			},
-			"expiration_seconds": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Default:     31536000,
-				Description: "Token lifetime in seconds (default 31536000 = 1 year, max 3153600000)",
-			},
+			"expiration_seconds": nkeKubeconfigExpirationSchema(false),
 			"kubeconfig": {
 				Type:        schema.TypeString,
 				Computed:    true,

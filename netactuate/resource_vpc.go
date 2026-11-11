@@ -24,7 +24,7 @@ func resourceVPC() *schema.Resource {
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(10 * time.Minute),
+			Create: schema.DefaultTimeout(30 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
@@ -129,8 +129,8 @@ func resourceVPC() *schema.Resource {
 			"firewall_ipv4_inbound": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
-				Description: "Enable IPv4 inbound firewall",
+				Computed:    true,
+				Description: "Enable IPv4 inbound firewall. The VPC needs an inbound rule first; use netactuate_vpc_inbound_firewall to turn it on in the same apply as the rules",
 			},
 			"firewall_ipv4_outbound": {
 				Type:        schema.TypeBool,
@@ -141,8 +141,8 @@ func resourceVPC() *schema.Resource {
 			"firewall_ipv6_inbound": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
-				Description: "Enable IPv6 inbound firewall",
+				Computed:    true,
+				Description: "Enable IPv6 inbound firewall. The VPC needs an inbound rule first; use netactuate_vpc_inbound_firewall to turn it on in the same apply as the rules",
 			},
 			"firewall_ipv6_outbound": {
 				Type:        schema.TypeBool,
@@ -264,8 +264,8 @@ func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	d.SetId(strconv.Itoa(vpc.VPCID))
 	log.Printf("[DEBUG] VPC created with ID: %d, waiting for ready...", vpc.VPCID)
 
-	if err := c.WaitForVPCReady(vpc.VPCID); err != nil {
-		return diag.Errorf("VPC %d created but failed to become ready: %s", vpc.VPCID, err)
+	if err := c.WaitForVPCReadyTimeout(vpc.VPCID, d.Timeout(schema.TimeoutCreate)); err != nil {
+		return diag.Errorf("VPC %d created but failed to become ready: %s. Raise timeouts { create } on the resource to wait longer", vpc.VPCID, err)
 	}
 
 	// Apply bastion port if specified (not part of the create request)
@@ -400,6 +400,7 @@ func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	if changed {
 		_, err := c.UpdateVPC(id, req)
 		if err != nil {
+			d.Partial(true)
 			return diag.FromErr(err)
 		}
 	}
@@ -412,6 +413,7 @@ func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 			req.Port = &port
 		}
 		if _, err := c.UpdateVPCSSHSettings(id, req); err != nil {
+			d.Partial(true)
 			return diag.FromErr(fmt.Errorf("update VPC %d bastion port: %w", id, err))
 		}
 	}
@@ -426,6 +428,7 @@ func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 			ns.IPv6 = append(ns.IPv6, gona.VPCNameserver{Server: v.(string)})
 		}
 		if _, err := c.UpdateVPCNameservers(id, ns); err != nil {
+			d.Partial(true)
 			return diag.FromErr(fmt.Errorf("update VPC %d nameservers: %w", id, err))
 		}
 	}

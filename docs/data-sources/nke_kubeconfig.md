@@ -27,7 +27,7 @@ data "netactuate_nke_kubeconfig" "example" {
 
 ### Optional
 
-- `expiration_seconds` (Number) Token lifetime in seconds (default 31536000 = 1 year, max 3153600000)
+- `expiration_seconds` (Number) Requested token lifetime in seconds. The minimum lifetime is 7 days (604800), which is also the default
 
 ### Read-Only
 

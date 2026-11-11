@@ -126,7 +126,7 @@ func listElementDescription(name string) string {
 }
 
 func subjectName(name string) string {
-	replacements := map[string]string{"asn": "ASN", "bgp": "BGP", "ddos": "DDoS", "dhcp": "DHCP", "dns": "DNS", "dnat": "DNAT", "http": "HTTP", "ipsec": "IPsec", "ipv4": "IPv4", "ipv6": "IPv6", "nke": "NKE", "ntp": "NTP", "oidc": "OIDC", "snat": "SNAT", "ssh": "SSH", "ssl": "SSL", "vm": "VM", "vms": "VMs", "vpc": "VPC", "vrf": "VRF"}
+	replacements := map[string]string{"asn": "ASN", "bgp": "BGP", "ddos": "DDoS", "dhcp": "DHCP", "dns": "DNS", "dnat": "DNAT", "http": "HTTP", "ipsec": "IPsec", "ipv4": "IPv4", "ipv6": "IPv6", "lb": "LB", "nke": "NKE", "ntp": "NTP", "oidc": "OIDC", "snat": "SNAT", "ssh": "SSH", "ssl": "SSL", "vm": "VM", "vms": "VMs", "vpc": "VPC", "vrf": "VRF"}
 	parts := strings.Split(name, "_")
 	for i, part := range parts {
 		if replacement, ok := replacements[part]; ok {

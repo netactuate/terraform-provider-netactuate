@@ -68,6 +68,90 @@ func resourceVPCNameserversDelete(ctx context.Context, d *schema.ResourceData, m
 	return nil
 }
 
+const vpcInboundFirewallDescription = "Manages a VPC's IPv4 and IPv6 inbound firewalls. Create it with depends_on on the VPC's inbound netactuate_vpc_gateway_firewall_rule resources: the firewall needs at least one inbound rule before it can be turned on. " +
+	"This resource owns both inbound flags: it sets ipv4 and ipv6 as configured (both are required), and destroying it turns both off. " +
+	"Leave firewall_ipv4_inbound and firewall_ipv6_inbound unset on netactuate_vpc while it is in use."
+
+func resourceVPCInboundFirewall() *schema.Resource {
+	return &schema.Resource{
+		Description:   vpcInboundFirewallDescription,
+		CreateContext: resourceVPCInboundFirewallPut,
+		ReadContext:   resourceVPCInboundFirewallRead,
+		UpdateContext: resourceVPCInboundFirewallPut,
+		DeleteContext: resourceVPCInboundFirewallDelete,
+		Importer:      &schema.ResourceImporter{StateContext: schema.ImportStatePassthroughContext},
+		Schema: map[string]*schema.Schema{
+			"vpc_id": {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "VPC ID whose inbound firewall is managed."},
+			"ipv4":   {Type: schema.TypeBool, Required: true, Description: "Whether the IPv4 inbound firewall is on. true needs an IPv4 inbound rule."},
+			"ipv6":   {Type: schema.TypeBool, Required: true, Description: "Whether the IPv6 inbound firewall is on. true needs an IPv6 inbound rule; false turns it off."},
+		},
+	}
+}
+
+func resourceVPCInboundFirewallPut(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	vpcID := d.Get("vpc_id").(int)
+	if err := setVPCInboundFirewall(m, vpcID, d.Get("ipv4").(bool), d.Get("ipv6").(bool)); err != nil {
+		return diag.FromErr(err)
+	}
+	d.SetId(strconv.Itoa(vpcID))
+	return resourceVPCInboundFirewallRead(ctx, d, m)
+}
+
+func resourceVPCInboundFirewallRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	vpcID, err := strconv.Atoi(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	vpc, err := m.(*ProviderClients).V3.GetVPC(vpcID)
+	if err != nil {
+		if gona.IsV3NotFound(err) {
+			d.SetId("")
+			return nil
+		}
+		return diag.FromErr(err)
+	}
+	var ipv4, ipv6 bool
+	if vpc.Firewalls != nil && vpc.Firewalls.IPv4 != nil && vpc.Firewalls.IPv4.Inbound != nil {
+		ipv4 = vpc.Firewalls.IPv4.Inbound.Enabled
+	}
+	if vpc.Firewalls != nil && vpc.Firewalls.IPv6 != nil && vpc.Firewalls.IPv6.Inbound != nil {
+		ipv6 = vpc.Firewalls.IPv6.Inbound.Enabled
+	}
+	var diags diag.Diagnostics
+	setValue("vpc_id", vpcID, d, &diags)
+	setValue("ipv4", ipv4, d, &diags)
+	setValue("ipv6", ipv6, d, &diags)
+	return diags
+}
+
+func resourceVPCInboundFirewallDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	vpcID, err := strconv.Atoi(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	if err := setVPCInboundFirewall(m, vpcID, false, false); err != nil {
+		if gona.IsV3NotFound(err) {
+			return nil
+		}
+		return diag.FromErr(err)
+	}
+	return nil
+}
+
+// setVPCInboundFirewall sets the VPC's inbound firewall flags.
+func setVPCInboundFirewall(m interface{}, vpcID int, ipv4, ipv6 bool) error {
+	req := &gona.UpdateVPCRequest{
+		Firewalls: &gona.VPCFirewalls{
+			IPv4: &gona.VPCFirewallDirections{Inbound: &ipv4},
+			IPv6: &gona.VPCFirewallDirections{Inbound: &ipv6},
+		},
+	}
+	if _, err := m.(*ProviderClients).V3.UpdateVPC(vpcID, req); err != nil {
+		return fmt.Errorf("update VPC %d inbound firewall: %w", vpcID, err)
+	}
+	return nil
+}
+
 func resourceVPCStandbyGateway() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceVPCStandbyGatewayCreate,

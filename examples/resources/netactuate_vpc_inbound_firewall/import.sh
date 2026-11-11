@@ -1,0 +1,1 @@
+terraform import netactuate_vpc_inbound_firewall.example 12345
