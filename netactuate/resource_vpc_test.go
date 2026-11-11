@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/netactuate/gona/gona"
 )
@@ -111,5 +113,43 @@ func TestEnableDefaultSnatNotForceNew(t *testing.T) {
 	}
 	if !sch.Computed {
 		t.Fatal("enable_default_snat must be Computed so an unconfigured/unhydrated value doesn't force a diff")
+	}
+}
+
+func TestVPCCreateTimeoutDefault(t *testing.T) {
+	if got := *resourceVPC().Timeouts.Create; got != 30*time.Minute {
+		t.Fatalf("create timeout default: %v, want 30m", got)
+	}
+}
+
+// A refused VPC update must leave the prior state (the firewall case: the API refuses to
+// enable the inbound firewall while the VPC has no inbound rules).
+func TestVPCUpdateRefusedKeepsState(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"code":400,"message":"Your request is not valid.","errors":["Cannot enable the IPv4 inbound firewall because this VPC has zero IPv4 inbound firewall rules."]}`))
+	}))
+	t.Cleanup(srv.Close)
+	clients := &ProviderClients{V3: gona.NewV3Client("k", srv.URL)}
+
+	r := resourceVPC()
+	prior := &terraform.InstanceState{ID: "770", Attributes: map[string]string{
+		"id": "770", "label": "x", "description": "x", "location": "SJC", "firewall_ipv4_inbound": "false",
+	}}
+	diff, err := r.SimpleDiff(context.Background(), prior, terraform.NewResourceConfigRaw(map[string]interface{}{
+		"label": "x", "description": "x", "location": "SJC", "firewall_ipv4_inbound": true,
+	}), nil)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	d, err := schema.InternalMap(r.Schema).Data(prior, diff)
+	if err != nil {
+		t.Fatalf("data: %v", err)
+	}
+	if diags := resourceVPCUpdate(context.Background(), d, clients); !diags.HasError() {
+		t.Fatal("want the API refusal")
+	}
+	if got := d.State().Attributes["firewall_ipv4_inbound"]; got != "false" {
+		t.Fatalf("state after a refused update: firewall_ipv4_inbound=%q, want the prior false", got)
 	}
 }

@@ -31,9 +31,9 @@ resource "netactuate_vpc" "example" {
 
 - `bastion_port` (Number) The bastion SSH port
 - `enable_default_snat` (Boolean) If true, requests a default SNAT rule at creation time for outbound internet connectivity. This is a create-time convenience only -- the API has no persistent representation of it, so it can never be verified or recovered by Read/import; state simply keeps whatever value was last configured or defaulted. To manage SNAT rules as real, importable/driftable state, use netactuate_vpc_gateway_snat_rule instead.
-- `firewall_ipv4_inbound` (Boolean) Enable IPv4 inbound firewall
+- `firewall_ipv4_inbound` (Boolean) Enable IPv4 inbound firewall. The VPC needs an inbound rule first; use netactuate_vpc_inbound_firewall to turn it on in the same apply as the rules
 - `firewall_ipv4_outbound` (Boolean) Enable IPv4 outbound firewall
-- `firewall_ipv6_inbound` (Boolean) Enable IPv6 inbound firewall
+- `firewall_ipv6_inbound` (Boolean) Enable IPv6 inbound firewall. The VPC needs an inbound rule first; use netactuate_vpc_inbound_firewall to turn it on in the same apply as the rules
 - `firewall_ipv6_outbound` (Boolean) Enable IPv6 outbound firewall
 - `location` (String) The location name to deploy the VPC
 - `location_id` (Number) The location ID to deploy the VPC into
