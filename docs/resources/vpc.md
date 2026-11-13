@@ -29,6 +29,7 @@ resource "netactuate_vpc" "example" {
 
 ### Optional
 
+- `allow_api_access` (Boolean) Allow API access from this VPC's public IP: its primary public IPv4 address is added to the account's API allowlist, so every API key accepts requests from it. Set at creation; changing it replaces the VPC. The address is removed shortly after the VPC is deleted, unless it was already on the allowlist or the entry has since been edited.
 - `bastion_port` (Number) The bastion SSH port
 - `enable_default_snat` (Boolean) If true, requests a default SNAT rule at creation time for outbound internet connectivity. This is a create-time convenience only -- the API has no persistent representation of it, so it can never be verified or recovered by Read/import; state simply keeps whatever value was last configured or defaulted. To manage SNAT rules as real, importable/driftable state, use netactuate_vpc_gateway_snat_rule instead.
 - `firewall_ipv4_inbound` (Boolean) Enable IPv4 inbound firewall. The VPC needs an inbound rule first; use netactuate_vpc_inbound_firewall to turn it on in the same apply as the rules

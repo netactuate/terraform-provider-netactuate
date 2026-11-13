@@ -126,6 +126,16 @@ func resourceVPC() *schema.Resource {
 					"To manage SNAT rules as real, importable/driftable state, use " +
 					"netactuate_vpc_gateway_snat_rule instead.",
 			},
+			"allow_api_access": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+				ForceNew: true,
+				Description: "Allow API access from this VPC's public IP: its primary public IPv4 address is added to the " +
+					"account's API allowlist, so every API key accepts requests from it. Set at creation; changing it " +
+					"replaces the VPC. The address is removed shortly after the VPC is deleted, unless it was already " +
+					"on the allowlist or the entry has since been edited.",
+			},
 			"firewall_ipv4_inbound": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -238,11 +248,7 @@ func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m interface{
 		req.Nameservers = ns
 	}
 
-	// Default SNAT
-	if d.Get("enable_default_snat").(bool) {
-		enableSnat := true
-		req.Defaults = &gona.VPCDefaults{EnableDefaultSnatRule: &enableSnat}
-	}
+	req.Defaults = vpcCreateDefaults(d)
 
 	// Firewalls
 	fwV4In := d.Get("firewall_ipv4_inbound").(bool)
@@ -309,6 +315,9 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 		setValue("bastion_port", 0, d, &diags)
 	}
 	setValue("status", vpc.Metadata.Status, d, &diags)
+	if vpc.Defaults != nil && vpc.Defaults.AddEgressIPToAPIACL != nil {
+		setValue("allow_api_access", *vpc.Defaults.AddEgressIPToAPIACL, d, &diags)
+	}
 
 	// The payload reports each balancer class either as a list carrying identifiers or as a
 	// count. Both are set from whichever arrived, so the id is empty rather than wrong when the
@@ -493,4 +502,22 @@ func stripHostCIDRSuffixes(addrs []string) []string {
 		out[i] = a
 	}
 	return out
+}
+
+// vpcCreateDefaults returns the create-time defaults, or nil when none are requested.
+func vpcCreateDefaults(d *schema.ResourceData) *gona.VPCDefaults {
+	var defaults gona.VPCDefaults
+	set := false
+	if d.Get("enable_default_snat").(bool) {
+		defaults.EnableDefaultSnatRule = gona.BoolPtr(true)
+		set = true
+	}
+	if d.Get("allow_api_access").(bool) {
+		defaults.AddEgressIPToAPIACL = gona.BoolPtr(true)
+		set = true
+	}
+	if !set {
+		return nil
+	}
+	return &defaults
 }
