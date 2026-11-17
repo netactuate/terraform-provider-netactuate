@@ -20,14 +20,11 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 		UpdateContext: resourceRouterVRFIPSecPeerUpdate,
 		DeleteContext: resourceRouterVRFIPSecPeerDelete,
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, meta interface{}) error {
-			doInitiate := diff.Get("do_initiate_connection").(bool)
-			_, hasPeerAddr := diff.GetOk("peer_address")
-
-			if !doInitiate && hasPeerAddr {
-				return fmt.Errorf("peer_address cannot be set when do_initiate_connection is false (passive mode accepts connections from any address)")
+			if !diff.NewValueKnown("do_initiate_connection") || !diff.NewValueKnown("peer_address") {
+				return nil
 			}
-			if doInitiate && !hasPeerAddr {
-				return fmt.Errorf("peer_address is required when do_initiate_connection is true (initiating mode)")
+			if _, ok := diff.GetOk("peer_address"); !ok {
+				return fmt.Errorf("peer_address is required: the API needs the remote peer's IPv4 address, and a passive router (do_initiate_connection = false) only accepts connections from that address")
 			}
 			return nil
 		},
@@ -79,7 +76,7 @@ func resourceRouterVRFIPSecPeer() *schema.Resource {
 			"peer_address": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Remote router IPv4 address. Required when do_initiate_connection is true. Cannot be set in passive mode (do_initiate_connection = false).",
+				Description: "Remote peer IPv4 address. Must be set in both modes. When do_initiate_connection is false (passive), the router accepts connections only from this address.",
 			},
 			"overlay_ipv4": {
 				Type:         schema.TypeString,

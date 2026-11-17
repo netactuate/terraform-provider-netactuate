@@ -41,7 +41,7 @@ resource "netactuate_router_vrf_ipsec_peer" "example" {
 - `do_initiate_connection` (Boolean) Whether to initiate or respond to connection.
 - `overlay_ipv4` (String) Overlay tunnel IPv4 CIDR.
 - `overlay_ipv6` (String) Overlay tunnel IPv6 CIDR.
-- `peer_address` (String) Remote router IPv4 address. Required when do_initiate_connection is true. Cannot be set in passive mode (do_initiate_connection = false).
+- `peer_address` (String) Remote peer IPv4 address. Must be set in both modes. When do_initiate_connection is false (passive), the router accepts connections only from this address.
 
 ### Read-Only
 
