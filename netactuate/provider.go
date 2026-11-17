@@ -120,6 +120,7 @@ func Provider() *schema.Provider {
 			"netactuate_servers":                                dataSourceServers(),
 			"netactuate_sshkey":                                 dataSourceSshKey(),
 			"netactuate_sshkeys":                                dataSourceSshKeys(),
+			"netactuate_api_acls":                               dataSourceAPIACLs(),
 			"netactuate_bgp_groups":                             dataSourceBGPGroups(),
 			"netactuate_bgp_asn":                                dataSourceBGPASN(),
 			"netactuate_bgp_prefixes":                           dataSourceBGPPrefixes(),
