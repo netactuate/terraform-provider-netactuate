@@ -3,15 +3,17 @@ package netactuate
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-cty/cty"
 	"log"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/netactuate/gona/gona"
 )
 
@@ -27,10 +29,29 @@ func resourceNKECluster() *schema.Resource {
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(15 * time.Minute),
 			Delete: schema.DefaultTimeout(10 * time.Minute),
+			Update: schema.DefaultTimeout(15 * time.Minute),
 		},
 		CustomizeDiff: customdiff.All(
 			func(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
+				raw := d.GetRawConfig()
+				if raw.IsNull() || !raw.IsKnown() || !raw.Type().IsObjectType() || !raw.Type().HasAttribute("network_mode") {
+					return nil
+				}
+				configured := raw.GetAttr("network_mode")
+				if configured.IsNull() || !configured.IsKnown() {
+					return nil
+				}
+				old, new := d.GetChange("network_mode")
+				if old != "" && new != "" && old != new {
+					return d.ForceNew("network_mode")
+				}
+				return nil
+			},
+			func(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
 				if !d.HasChange("version") && d.Id() != "" {
+					return nil
+				}
+				if m == nil {
 					return nil
 				}
 				version := d.Get("version").(string)
@@ -42,6 +63,11 @@ func resourceNKECluster() *schema.Resource {
 			},
 		),
 		Schema: map[string]*schema.Schema{
+			"pod_egress_mode":        {Type: schema.TypeString, Optional: true, Computed: true, ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"snat", "routed-private"}, false)), Description: "Pod egress mode: snat or routed-private."},
+			"network_mode":           {Type: schema.TypeString, Optional: true, Computed: true, ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"edge", "edge-with-vpc", "vpc"}, false)), Description: "Cluster network mode. Changing an established mode requires recreation."},
+			"pod_network_prefix":     {Type: schema.TypeInt, Computed: true, Description: "Pod IPv4 network prefix length."},
+			"service_network_prefix": {Type: schema.TypeInt, Computed: true, Description: "Service IPv4 network prefix length."},
+			"node_limit":             {Type: schema.TypeInt, Computed: true, Description: "Node limit derived from the pod network."},
 			"cluster_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
@@ -75,6 +101,7 @@ func resourceNKECluster() *schema.Resource {
 				Description: "Maximum number of nodes (autoscaling upper bound)",
 			},
 			"do_autoscaling": {
+				Deprecated:  "use netactuate_nke_node_pool.autoscaling instead",
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
@@ -107,25 +134,20 @@ func resourceNKECluster() *schema.Resource {
 				Description: "VPC ID for worker node networking. Requires an applied outbound SNAT rule before cluster creation.",
 			},
 			"pod_cidr": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Computed:    true,
-				ForceNew:    true,
-				Description: "Pod network CIDR for the cluster",
+				ValidateDiagFunc: validatePodCIDR,
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				Description:      "Pod network CIDR, aligned /16 to /22 within RFC1918 or CGNAT.",
 			},
 			"service_cidr": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
-				// The platform accepts a /16 ONLY, and says so at apply time:
-				//   400 networking.serviceCidr: "The service CIDR must be a /16 (the MVP
-				//   supports /16 only)"
-				// Checked at plan instead, so a customer learns before an NKE cluster
-				// build is attempted rather than after their plan was approved. Same
-				// reasoning as the VPC label length check.
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
 				ValidateDiagFunc: validateServiceCIDRIsSlash16,
-				Description:      "Service network CIDR for the cluster. Must be a /16: the platform supports no other prefix length.",
+				Description:      "Service network CIDR, aligned /16 to /24 within RFC1918 or CGNAT.",
 			},
 			// Location: accept name or ID
 			"location": {
@@ -270,7 +292,13 @@ func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m int
 	if v, ok := d.GetOk("service_cidr"); ok {
 		networking.ServiceCIDR = v.(string)
 	}
-	if networking.VpcID != 0 || networking.PodCIDR != "" || networking.ServiceCIDR != "" {
+	if v, ok := d.GetOk("pod_egress_mode"); ok {
+		networking.PodEgressMode = v.(string)
+	}
+	if v, ok := d.GetOk("network_mode"); ok {
+		networking.NetworkMode = v.(string)
+	}
+	if networking.PodEgressMode != "" || networking.NetworkMode != "" || networking.VpcID != 0 || networking.PodCIDR != "" || networking.ServiceCIDR != "" {
 		req.Networking = networking
 	}
 
@@ -288,13 +316,13 @@ func resourceNKEClusterCreate(ctx context.Context, d *schema.ResourceData, m int
 	d.SetId(strconv.Itoa(clusterID))
 	log.Printf("[INFO] NKE cluster created with ID: %d, waiting for Healthy status...", clusterID)
 
-	if err := c.WaitForNKEClusterHealthy(clusterID); err != nil {
+	if err := c.WaitForNKEClusterHealthyTimeout(clusterID, d.Timeout(schema.TimeoutCreate)); err != nil {
 		return diag.Errorf("NKE cluster %d created but failed to become healthy: %s", clusterID, err)
 	}
 
 	// A Healthy cluster does not yet list its worker nodes, so a data source reading them in the
 	// same apply would record an empty list for a cluster that is about to have several.
-	if err := c.WaitForNKEWorkerNodes(clusterID, req.MinimumNodes); err != nil {
+	if err := c.WaitForNKEWorkerNodesTimeout(clusterID, req.MinimumNodes, d.Timeout(schema.TimeoutCreate)); err != nil {
 		return diag.Errorf("NKE cluster %d became healthy but its worker nodes did not register: %s", clusterID, err)
 	}
 
@@ -340,6 +368,15 @@ func resourceNKEClusterRead(ctx context.Context, d *schema.ResourceData, m inter
 	setValue("api_url", cluster.URLs.API, d, &diags)
 	setValue("prometheus_url", cluster.URLs.Prometheus, d, &diags)
 	setValue("kubernetes_dashboard_url", cluster.URLs.KubernetesDashboard, d, &diags)
+	setValue("network_mode", cluster.NetworkMode, d, &diags)
+	setValue("pod_egress_mode", cluster.Networks.PodEgressMode, d, &diags)
+	setValue("node_limit", cluster.Nodes.Limit, d, &diags)
+	for key, cidr := range map[string]string{"pod_network_prefix": cluster.Networks.Pod, "service_network_prefix": cluster.Networks.Service} {
+		if _, n, e := net.ParseCIDR(cidr); e == nil {
+			prefix, _ := n.Mask.Size()
+			setValue(key, prefix, d, &diags)
+		}
+	}
 	setValue("pod_network", cluster.Networks.Pod, d, &diags)
 	setValue("service_network", cluster.Networks.Service, d, &diags)
 	setValue("vpc_id", cluster.VpcID, d, &diags)
@@ -367,6 +404,12 @@ func resourceNKEClusterUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	req := &gona.UpdateNKEClusterRequest{}
 	changed := false
+	if d.HasChange("pod_egress_mode") {
+		if v, ok := d.GetOk("pod_egress_mode"); ok {
+			req.Networking = &gona.NKEClusterNetwork{PodEgressMode: v.(string)}
+			changed = true
+		}
+	}
 
 	if d.HasChange("name") {
 		req.Name = d.Get("name").(string)
@@ -439,22 +482,32 @@ func resourceNKEClusterDelete(ctx context.Context, d *schema.ResourceData, m int
 	return nil
 }
 
-// validateServiceCIDRIsSlash16 enforces the platform's only supported service CIDR shape.
-//
-// A /12 is rejected at apply with a clear message, but only after the plan has
-// been approved and the cluster build attempted.
+// The legacy function name is retained for callers.
 func validateServiceCIDRIsSlash16(v interface{}, p cty.Path) diag.Diagnostics {
+	return validateNKECIDR(v, p, 24)
+}
+func validatePodCIDR(v interface{}, p cty.Path) diag.Diagnostics { return validateNKECIDR(v, p, 22) }
+func validateNKECIDR(v interface{}, p cty.Path, maximum int) diag.Diagnostics {
 	s, ok := v.(string)
 	if !ok || s == "" {
 		return nil
 	}
-	if !strings.HasSuffix(s, "/16") {
-		return diag.Diagnostics{{
-			Severity:      diag.Error,
-			Summary:       "service_cidr must be a /16",
-			Detail:        fmt.Sprintf("got %q. The platform supports a /16 service CIDR only.", s),
-			AttributePath: p,
-		}}
+	ip, n, err := net.ParseCIDR(strings.TrimSpace(s))
+	valid := err == nil && ip.To4() != nil
+	if valid {
+		prefix, bits := n.Mask.Size()
+		valid = bits == 32 && prefix >= 16 && prefix <= maximum && ip.Equal(n.IP)
+		allowed := false
+		for _, space := range []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"} {
+			_, private, _ := net.ParseCIDR(space)
+			if private.Contains(ip) {
+				allowed = true
+			}
+		}
+		valid = valid && allowed
+	}
+	if !valid {
+		return diag.Diagnostics{{Severity: diag.Error, Summary: fmt.Sprintf("CIDR %q must be an aligned IPv4 /16 to /%d within RFC1918 or CGNAT, with zero host bits", s, maximum), AttributePath: p}}
 	}
 	return nil
 }

@@ -1,0 +1,360 @@
+{
+  "cluster": {
+    "cluster_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "name": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "version": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "replicas": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Type": "TypeInt",
+      "Default": 1
+    },
+    "minimum_nodes": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "maximum_nodes": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "do_autoscaling": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeBool",
+      "Default": false
+    },
+    "high_availability": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeBool",
+      "Default": null
+    },
+    "kubernetes_dashboard": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Type": "TypeBool",
+      "Default": false
+    },
+    "do_dual_stack": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Type": "TypeBool",
+      "Default": false
+    },
+    "vpc_id": {
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "pod_cidr": {
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "service_cidr": {
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "location": {
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "location_id": {
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "plan": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "package_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "contract_id": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "tag_ids": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeSet",
+      "Default": null
+    },
+    "status": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "api_url": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "prometheus_url": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "kubernetes_dashboard_url": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "pod_network": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "service_network": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    }
+  },
+  "worker": {
+    "cluster_id": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "worker_node_id": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "label": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "tag_ids": {
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeSet",
+      "Default": null
+    },
+    "name": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "status_ready": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeBool",
+      "Default": null
+    },
+    "package_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "package_name": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "location_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "location_name": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    }
+  },
+  "workers": {
+    "cluster_id": {
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "worker_nodes": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeList",
+      "Default": null
+    },
+    "worker_node_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "name": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "status_ready": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeBool",
+      "Default": null
+    },
+    "package_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "package_name": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    },
+    "location_id": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeInt",
+      "Default": null
+    },
+    "location_name": {
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Type": "TypeString",
+      "Default": null
+    }
+  }
+}
