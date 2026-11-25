@@ -43,6 +43,7 @@ func dataSourceVPCAttachments() *schema.Resource {
 		s.MinItems = 0
 		s.MaxItems = 0
 	}
+	fields["bgp"] = drop3BGPSchema(true)
 	fields["attachment_id"] = &schema.Schema{Type: schema.TypeInt, Computed: true}
 	return &schema.Resource{Schema: map[string]*schema.Schema{"vpc_id": {Type: schema.TypeInt, Required: true}, "attachments": {Type: schema.TypeList, Computed: true, Elem: &schema.Resource{Schema: fields}}}, ReadContext: func(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 		id := d.Get("vpc_id").(int)
