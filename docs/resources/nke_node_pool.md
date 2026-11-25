@@ -12,7 +12,7 @@ Manages an NKE node pool.
 
 The API calls the pool type `mode`. Use `package_id` to select the worker plan for a managed pool. Manual pools hold workers added through the API; they do not support desired size or autoscaling. The `default` pool is reserved and cannot be managed by this resource.
 
-Autoscaling is enabled by PATCH after the pool is created. When the cluster autoscaler controls a pool, omit `desired_nodes` to avoid conflicting size writes. Deletion disables pool autoscaling, sets the minimum to zero, drains the pool, waits for zero workers, then deletes it. Manual workers are removed individually. The size and worker removal APIs require the platform scaling feature to be enabled.
+Autoscaling is enabled by PATCH after the pool is created. When the cluster autoscaler controls a pool, omit `desired_nodes` to avoid conflicting size writes. Deletion disables pool autoscaling, sets the minimum to zero, removes every worker in the pool through the worker remove route, waits for zero workers, then deletes the pool. The size and worker removal APIs require the platform scaling feature to be enabled.
 
 ## Example Usage
 
@@ -59,7 +59,7 @@ resource "netactuate_nke_node_pool" "example" {
 - `labels` (Map of String) Kubernetes worker labels.
 - `taints` (Block List) Worker taints, each with required `key` and `effect`, and optional `value`. Effect is `NoSchedule`, `PreferNoSchedule` or `NoExecute`.
 - `autoscaling` (Block List, Max: 1) Pool autoscaling settings. `enabled` is a Boolean, `minimum_nodes` is 0 to 64, and `maximum_nodes` is 1 to 64. Omit maximum for no upper bound.
-- `desired_nodes` (Number) Desired managed worker count, 0 to 1000, within the pool bounds. Changed values use PUT size.
+- `desired_nodes` (Number) Desired managed worker count, 0 to 1000, within the pool bounds. A higher value uses PUT size and the platform adds workers; a lower value removes the newest workers one at a time through the worker remove route, since PUT size records a target and does not remove workers.
 - `timeouts` (Block) `create`, `update`, and `delete` each default to 20 minutes and control convergence waits.
 
 ### Read-Only

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-cty/cty"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -132,7 +133,19 @@ func applyNKENodePool(ctx context.Context, d *schema.ResourceData, m interface{}
 		return diag.FromErr(err)
 	}
 	if (created && nkePoolDesiredConfigured(d)) || (!created && d.HasChange("desired_nodes")) {
-		if err = c.SetNKENodePoolSize(clusterID, id, d.Get("desired_nodes").(int)); err != nil {
+		desired := d.Get("desired_nodes").(int)
+		current, e := c.GetNKENodePool(clusterID, id)
+		if e != nil {
+			return diag.FromErr(e)
+		}
+		// PUT size only records the target: the platform adds nodes to reach a
+		// higher target but never picks nodes to drop. A lower target is reached
+		// through the per-node remove route, which also lowers the pool target.
+		if !created && current.Nodes.Total > desired {
+			if e = removeNKEPoolNodes(c, clusterID, id, current.Nodes.Total-desired); e != nil {
+				return diag.FromErr(e)
+			}
+		} else if err = c.SetNKENodePoolSize(clusterID, id, desired); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -249,22 +262,17 @@ func resourceNKENodePoolDelete(ctx context.Context, d *schema.ResourceData, m in
 		if err = c.UpdateNKENodePool(clusterID, id, &gona.UpdateNKENodePoolRequest{MinimumNodes: &zero, AutoscalingEnabled: &disabled}); err != nil {
 			return diag.FromErr(err)
 		}
-		if p.Mode == "managed" {
-			if err = c.SetNKENodePoolSize(clusterID, id, 0); err != nil {
+		// Both pool types drain through the per-node remove route; PUT size 0
+		// records a target but removes nothing. Each remove lowers the target by
+		// one, and the platform refuses it once the target is already 0 (LD-196),
+		// so a target left below the node count is raised to it first.
+		if p.Mode == "managed" && p.DesiredNodes != nil && *p.DesiredNodes < p.Nodes.Total {
+			if err = c.SetNKENodePoolSize(clusterID, id, p.Nodes.Total); err != nil {
 				return diag.FromErr(err)
 			}
-		} else {
-			nodes, e := c.ListNKEWorkerNodes(clusterID)
-			if e != nil {
-				return diag.FromErr(e)
-			}
-			for _, node := range nodes {
-				if node.PoolID == id {
-					if e = c.RemoveNKEWorkerNode(clusterID, node.WorkerNodeID); e != nil && !gona.IsV3NotFound(e) {
-						return diag.FromErr(e)
-					}
-				}
-			}
+		}
+		if err = removeNKEPoolNodes(c, clusterID, id, -1); err != nil {
+			return diag.FromErr(err)
 		}
 		if err = waitNKENodePool(ctx, c, clusterID, id, d.Timeout(schema.TimeoutDelete), true); err != nil {
 			return diag.Errorf("NKE node pool %s failed to drain: %s", d.Id(), err)
@@ -299,4 +307,30 @@ func nkePoolBlockFieldConfigured(d *schema.ResourceData, key string) bool {
 	}
 	value := block.Index(cty.NumberIntVal(0)).GetAttr(key)
 	return value.IsKnown() && !value.IsNull()
+}
+
+// removeNKEPoolNodes schedules removal of count worker nodes of a pool, newest
+// first, or of every node when count is negative. Nodes already scheduled for
+// deletion are skipped.
+func removeNKEPoolNodes(c *gona.V3Client, clusterID, poolID, count int) error {
+	nodes, err := c.ListNKEWorkerNodes(clusterID)
+	if err != nil {
+		return err
+	}
+	var ids []int
+	for _, node := range nodes {
+		if node.PoolID == poolID && !node.DeleteScheduled {
+			ids = append(ids, node.WorkerNodeID)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(ids)))
+	if count >= 0 && count < len(ids) {
+		ids = ids[:count]
+	}
+	for _, workerNodeID := range ids {
+		if err = c.RemoveNKEWorkerNode(clusterID, workerNodeID); err != nil && !gona.IsV3NotFound(err) {
+			return err
+		}
+	}
+	return nil
 }

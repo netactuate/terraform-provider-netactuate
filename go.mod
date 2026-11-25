@@ -7,7 +7,7 @@ toolchain go1.25.10
 require (
 	github.com/hashicorp/go-cty v1.5.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.38.2
-	github.com/netactuate/gona v0.4.8-0.20261125003208-f91c6edd8907
+	github.com/netactuate/gona v0.4.8-0.20261125005038-cf6a4868d23c
 	gopkg.in/yaml.v3 v3.0.1
 )
 
