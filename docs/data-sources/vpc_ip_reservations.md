@@ -31,3 +31,16 @@ data "netactuate_vpc_ip_reservations" "example" {
 - `id` (String) The ID of this resource.
 - `interfaces` (String) Interface IP reservations as compact JSON.
 - `vms` (String) VM IP reservations as compact JSON.
+
+## Typed reservations
+
+Optional `type` selects `customerReserved` or `lbVip`. When set, Computed `reservations` contains `ip_reservation_id` (Number), `address` (String), `description` (String), `reserved_on` (String), and `in_use` (Boolean, false when omitted by the API). Without `type`, the existing `gateways`, `interfaces`, and `vms` JSON attributes and request path are unchanged.
+
+Requires vapi3 permission `vpc.read`. Q25 vapi3 flags: `enable-vpc-ip-reservations` and `enable-vpc-internal-lb`.
+
+```terraform
+data "netactuate_vpc_ip_reservations" "customer" {
+  vpc_id = 12345
+  type   = "customerReserved"
+}
+```

@@ -1,0 +1,22 @@
+{
+  "ID": "vpc-1-ip-reservations",
+  "Config": {
+    "vpc_id": 1
+  },
+  "State": {
+    "id": "vpc-1-ip-reservations",
+    "vpc_id": "1",
+    "gateways": "[{\"network\":\"10.0.0.1/32\"}]",
+    "interfaces": "[]",
+    "vms": "[]"
+  },
+  "Response": {
+    "gateways": [
+      {
+        "network": "10.0.0.1/32"
+      }
+    ],
+    "interfaces": [],
+    "vms": []
+  }
+}

@@ -193,6 +193,9 @@ func dataSourceVPCIPReservations() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceVPCIPReservationsRead,
 		Schema: map[string]*schema.Schema{
+			"type":         drop2ReservationTypeSchema(),
+			"reservations": drop2ReservationsSchema(),
+
 			"vpc_id":     {Type: schema.TypeInt, Required: true, Description: "VPC ID."},
 			"gateways":   rawJSONDataSourceSchema("Gateway IP reservations as compact JSON."),
 			"interfaces": rawJSONDataSourceSchema("Interface IP reservations as compact JSON."),
@@ -202,6 +205,9 @@ func dataSourceVPCIPReservations() *schema.Resource {
 }
 
 func dataSourceVPCIPReservationsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	if d.Get("type").(string) != "" {
+		return dataSourceVPCIPReservationsTypedRead(ctx, d, m)
+	}
 	vpcID := d.Get("vpc_id").(int)
 	reservations, err := m.(*ProviderClients).V3.GetVPCIPReservations(vpcID)
 	if err != nil {

@@ -74,3 +74,5 @@ The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/c
 ```shell
 terraform import netactuate_vpc.example 12345
 ```
+
+Q31 vapi3 counts, requiring `vpc.read`: `max_floating_ipv4s` and `used_floating_ipv4s` are Computed numbers. The related Q25 features use `enable-vpc-ip-reservations` and `enable-vpc-internal-lb`.

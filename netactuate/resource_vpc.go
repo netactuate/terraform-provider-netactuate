@@ -36,6 +36,8 @@ func resourceVPC() *schema.Resource {
 			return nil
 		},
 		Schema: map[string]*schema.Schema{
+			"max_floating_ipv4s":  vpcQ31CountSchema(),
+			"used_floating_ipv4s": vpcQ31CountSchema(),
 			"vpc_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
@@ -305,6 +307,7 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 
 	var diags diag.Diagnostics
 
+	readVPCQ31(d, vpc, &diags)
 	setValue("vpc_id", vpc.VPCID, d, &diags)
 	setValue("bastion_ipv4", vpc.Bastion.Addresses.IPv4, d, &diags)
 	setValue("bastion_ipv6", vpc.Bastion.Addresses.IPv6, d, &diags)
@@ -474,7 +477,7 @@ func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m interface{
 			log.Printf("[WARN] VPC %d already deleted", id)
 			return nil
 		}
-		if !strings.Contains(err.Error(), "virtual machines in this VPC") {
+		if !vpcDeleteHeldByVMs(err) {
 			return diag.FromErr(err)
 		}
 		if attempt >= vpcDeleteRetries-1 {
@@ -520,4 +523,12 @@ func vpcCreateDefaults(d *schema.ResourceData) *gona.VPCDefaults {
 		return nil
 	}
 	return &defaults
+}
+
+// vpcDeleteHeldByVMs reports whether a VPC delete was refused only because a VM is
+// still attached or detaching. vapi3 words this refusal two ways (LD-236).
+func vpcDeleteHeldByVMs(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "virtual machines in this VPC") ||
+		strings.Contains(msg, "servers connected to this VPC")
 }
