@@ -427,3 +427,41 @@ func TestSecurityGroupRuleProtocolCaseInsensitive(t *testing.T) {
 		t.Fatal("protocol must compare case-insensitively and still see a real change (LD-241)")
 	}
 }
+
+// vapi3 refuses an attachment until vpc.readyOn is set, which can trail the VPC reading Running.
+// Create retries that refusal and then reads a list row whose subnetId is a string (LD-242).
+func TestDrop3ServerAttachWaitsForVPCReady(t *testing.T) {
+	posts := 0
+	c := drop2TestClient(t, func(w http.ResponseWriter, req *http.Request) {
+		if req.Method == "POST" {
+			posts++
+			if posts < 3 {
+				w.WriteHeader(400)
+				fmt.Fprint(w, `{"code":400,"message":"The VPC is not available for server attachments."}`)
+				return
+			}
+			fmt.Fprint(w, `{"data":{"mbpkgid":2,"nicId":3,"state":"attached","subnetId":null}}`)
+			return
+		}
+		fmt.Fprint(w, `{"data":{"data":[{"mbpkgid":2,"membership":"attached","subnetId":"9","nicId":3,"state":"attached","address":"10.0.0.4"}]}}`)
+	})
+	r := resourceVPCServerAttachment()
+	d := schema.TestResourceDataRaw(t, r.Schema, map[string]interface{}{"vpc_id": 1, "mbpkgid": 2})
+	if ds := r.CreateContext(context.Background(), d, c); ds.HasError() {
+		t.Fatalf("create: %v", ds)
+	}
+	if posts != 3 || d.Id() != "1/2" || d.Get("subnet_id").(int) != 9 || d.Get("address").(string) != "10.0.0.4" {
+		t.Fatalf("posts %d id %q subnet %v address %v", posts, d.Id(), d.Get("subnet_id"), d.Get("address"))
+	}
+	// Any other refusal is not retried.
+	posts = 0
+	other := drop2TestClient(t, func(w http.ResponseWriter, req *http.Request) {
+		posts++
+		w.WriteHeader(400)
+		fmt.Fprint(w, `{"code":400,"message":"This server cannot be attached to a VPC."}`)
+	})
+	d = schema.TestResourceDataRaw(t, r.Schema, map[string]interface{}{"vpc_id": 1, "mbpkgid": 2})
+	if ds := r.CreateContext(context.Background(), d, other); !ds.HasError() || posts != 1 || !strings.Contains(fmt.Sprint(ds), "cannot be attached") {
+		t.Fatalf("posts %d: %v", posts, ds)
+	}
+}

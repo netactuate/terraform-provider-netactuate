@@ -304,12 +304,29 @@ func drop3ServerValues(r *gona.VPCServer) map[string]interface{} {
 }
 func drop3ServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	v, id := d.Get("vpc_id").(int), d.Get("mbpkgid").(int)
-	_, e := m.(*ProviderClients).V3.AttachVPCServer(v, &gona.AttachVPCServerRequest{MBPkgID: id, SubnetID: d.Get("subnet_id").(int)})
+	c := m.(*ProviderClients).V3
+	req := &gona.AttachVPCServerRequest{MBPkgID: id, SubnetID: d.Get("subnet_id").(int)}
+	// vapi3 refuses attachments until vpc.readyOn is set, which can trail the VPC reading Running
+	// (status follows the gateway instance). Retry that one refusal until the create timeout.
+	var e error
+	w := drop2Wait(ctx, d.Timeout(schema.TimeoutCreate), func() (bool, error) {
+		_, e = c.AttachVPCServer(v, req)
+		if e != nil && drop3VPCNotReady(e) {
+			return false, nil
+		}
+		return true, nil
+	})
+	if e == nil && w != nil {
+		e = w
+	}
 	if e != nil {
 		return drop2Error(e)
 	}
 	d.SetId(fmt.Sprintf("%d/%d", v, id))
 	return drop3ServerRead(ctx, d, m)
+}
+func drop3VPCNotReady(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "The VPC is not available for server attachments.")
 }
 func drop3ServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	v, id, e := drop3IDs(d)
