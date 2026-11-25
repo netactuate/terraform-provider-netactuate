@@ -85,6 +85,24 @@ resource "netactuate_vpc" "test" {
  enable_default_snat = true
 }
 `, name, name, location)
+	if kind == "vpc_attachment" {
+		// A customer-router address must be a VM's DHCP reservation in this VPC, so the
+		// fixture makes a real VM in the VPC and the attachment uses its address.
+		config += fmt.Sprintf(`
+resource "netactuate_server" "router" {
+ hostname = %q
+ plan = %q
+ location_id = %d
+ image_id = %d
+ password = %q
+ package_billing_contract_id = %q
+ vpc_id = netactuate_vpc.test.vpc_id
+ lifecycle {
+  ignore_changes = [password]
+ }
+}
+`, name+".example.invalid", testAccEnvString(t, "NETACTUATE_ACC_PLAN"), location, testAccEnvInt(t, "NETACTUATE_ACC_IMAGE_ID"), testAccEnvString(t, "NETACTUATE_ACC_SERVER_PASSWORD"), testAccEnvString(t, "NETACTUATE_ACC_CONTRACT_ID"))
+	}
 	if strings.HasPrefix(kind, "nke_") {
 		config += fmt.Sprintf(`
 resource "netactuate_nke_cluster" "test" {
@@ -144,7 +162,7 @@ data "netactuate_nke_cluster_api_allow_list" "test" {
 		return fmt.Sprintf(`resource "netactuate_vpc_attachment" "test" {
  vpc_id = netactuate_vpc.test.vpc_id
  type = "customer-router"
- address = "10.77.0.20"
+ address = element(split("/", netactuate_server.router.private_ip), 0)
  description = %q
  accept = [%q]
 }
@@ -247,6 +265,12 @@ func drop2AccRun(t *testing.T, kind string, oob, named bool) {
 				return err
 			}
 			clusterID, _ = testAccID(s, "netactuate_nke_cluster.test")
+		}
+		if kind == "nke_cluster_api_allow" && os.Getenv("NETACTUATE_ACC_SKIP_PLATFORM_ROWS") != "" {
+			// eng1 test-data gap (Q31 c4 and c5): the eng1 NKE applier writes an empty applied
+			// list for clusters created since 2026-11-23, so there are no platform rows to read.
+			t.Logf("SKIP platform row sub-check on cluster %d: NETACTUATE_ACC_SKIP_PLATFORM_ROWS=%s", clusterID, os.Getenv("NETACTUATE_ACC_SKIP_PLATFORM_ROWS"))
+			return nil
 		}
 		if kind == "nke_cluster_api_allow" {
 			// Platform rows come from appliedNetworksJson, which the NKE applier writes after

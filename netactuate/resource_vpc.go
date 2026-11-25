@@ -477,7 +477,7 @@ func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m interface{
 			log.Printf("[WARN] VPC %d already deleted", id)
 			return nil
 		}
-		if !strings.Contains(err.Error(), "virtual machines in this VPC") {
+		if !vpcDeleteHeldByVMs(err) {
 			return diag.FromErr(err)
 		}
 		if attempt >= vpcDeleteRetries-1 {
@@ -523,4 +523,12 @@ func vpcCreateDefaults(d *schema.ResourceData) *gona.VPCDefaults {
 		return nil
 	}
 	return &defaults
+}
+
+// vpcDeleteHeldByVMs reports whether a VPC delete was refused only because a VM is
+// still attached or detaching. vapi3 words this refusal two ways (LD-236).
+func vpcDeleteHeldByVMs(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "virtual machines in this VPC") ||
+		strings.Contains(msg, "servers connected to this VPC")
 }
