@@ -16,7 +16,7 @@ func resourceVPCAttachment() *schema.Resource {
 		"vpc_id": drop2IDSchema(), "type": {Type: schema.TypeString, Required: true, ForceNew: true, ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"customer-router", "cloud-router"}, false))},
 		"address": {Type: schema.TypeString, Optional: true, Computed: true, ForceNew: true}, "cloud_router_id": {Type: schema.TypeInt, Optional: true, ForceNew: true}, "vrf_id": {Type: schema.TypeInt, Optional: true, ForceNew: true}, "description": {Type: schema.TypeString, Optional: true, ForceNew: true, ValidateDiagFunc: validation.ToDiagFunc(validation.StringLenBetween(0, 255))},
 		"accept":    {Type: schema.TypeSet, Required: true, MinItems: 1, MaxItems: 32, Elem: &schema.Schema{Type: schema.TypeString, ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR)}},
-		"advertise": {Type: schema.TypeSet, Optional: true, MaxItems: 32, Elem: &schema.Schema{Type: schema.TypeString, ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR)}}, "state": drop2String(true), "state_message": drop2String(true)}}
+		"advertise": {Type: schema.TypeSet, Optional: true, Computed: true, MaxItems: 32, Elem: &schema.Schema{Type: schema.TypeString, ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR)}}, "state": drop2String(true), "state_message": drop2String(true)}}
 }
 func drop2AttachmentIDs(d *schema.ResourceData) (int, int, error) {
 	v, id, err := drop2Parts(d)

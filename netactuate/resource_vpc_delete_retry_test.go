@@ -17,3 +17,12 @@ func TestVPCDeleteHeldByVMs(t *testing.T) {
 		}
 	}
 }
+
+// vapi3 fills advertise with the VPC network when it is omitted, so the attribute must be
+// Computed or every config without it plans a change (LD-237).
+func TestVPCAttachmentAdvertiseComputed(t *testing.T) {
+	s := resourceVPCAttachment().Schema["advertise"]
+	if s == nil || !s.Optional || !s.Computed {
+		t.Fatalf("advertise must be Optional and Computed, got %+v", s)
+	}
+}
