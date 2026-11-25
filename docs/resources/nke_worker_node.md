@@ -34,6 +34,10 @@ resource "netactuate_nke_worker_node" "example" {
 
 ### Read-Only
 
+- `public_ip_address` (String) Worker public IPv4 address.
+- `private_ip_address` (String) Worker private IPv4 address.
+- `private_nic_state` (String) Private NIC state: `none`, `pending`, `applied` or `failed`.
+
 - `id` (String) The ID of this resource.
 - `location_id` (Number) Worker node location ID.
 - `location_name` (String) Worker node location name.

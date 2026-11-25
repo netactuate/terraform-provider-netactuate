@@ -27,6 +27,12 @@ data "netactuate_nke_worker_nodes" "example" {
 
 ### Read-Only
 
+Each object in `worker_nodes` also exposes:
+
+- `public_ip_address` (String) Worker public IPv4 address.
+- `private_ip_address` (String) Worker private IPv4 address.
+- `private_nic_state` (String) Private NIC state: `none`, `pending`, `applied` or `failed`.
+
 - `id` (String) The ID of this resource.
 - `worker_nodes` (List of Object) List of worker nodes in the cluster (see [below for nested schema](#nestedatt--worker_nodes))
 

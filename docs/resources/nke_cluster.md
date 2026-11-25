@@ -37,19 +37,26 @@ resource "netactuate_nke_cluster" "example" {
 
 ### Optional
 
-- `do_autoscaling` (Boolean) Enable autoscaling for this cluster
+- `pod_egress_mode` (String) `snat` or `routed-private`. Routed private egress requires a VPC cluster and platform feature enablement.
+- `network_mode` (String) `edge`, `edge-with-vpc` or `vpc`. Changing an established mode requires recreation. Unset values use the API default.
+
+- `do_autoscaling` (Boolean) Enable autoscaling for this cluster. Deprecated: use `netactuate_nke_node_pool.autoscaling` instead
 - `do_dual_stack` (Boolean) Enable dual-stack IPv4+IPv6 support (can only be set at creation, requires recreation to change)
 - `kubernetes_dashboard` (Boolean) Install the Kubernetes dashboard addon (requires recreation)
 - `location` (String) Location name where the cluster will be deployed (e.g. "DEVRDU - Raleigh, NC")
 - `location_id` (Number) Location ID where the cluster will be deployed
-- `pod_cidr` (String) Pod network CIDR for the cluster
+- `pod_cidr` (String) Pod network CIDR for the cluster. Must be aligned /16 to /22 within RFC1918 or CGNAT, with zero host bits
 - `replicas` (Number) Number of control plane replicas
-- `service_cidr` (String) Service network CIDR for the cluster. Must be a /16: the platform supports no other prefix length.
+- `service_cidr` (String) Service network CIDR for the cluster. Must be aligned /16 to /24 within RFC1918 or CGNAT, with zero host bits.
 - `tag_ids` (Set of Number) Tag IDs to assign to the cluster. Note: the API does not return tag IDs so changes made outside Terraform may not be detected
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `vpc_id` (Number) VPC ID for worker node networking. Requires an applied outbound SNAT rule before cluster creation.
 
 ### Read-Only
+
+- `pod_network_prefix` (Number) Pod network prefix length, derived from the returned CIDR.
+- `service_network_prefix` (Number) Service network prefix length, derived from the returned CIDR.
+- `node_limit` (Number) Node limit from the pod network size.
 
 - `api_url` (String) The Kubernetes API server URL
 - `cluster_id` (Number) The ID of the NKE cluster

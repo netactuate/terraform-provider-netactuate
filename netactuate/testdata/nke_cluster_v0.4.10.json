@@ -1,0 +1,27 @@
+{
+  "version": "0.4.10",
+  "id": "42",
+  "config": {
+    "name": "nah-legacy",
+    "version": "1.35.1",
+    "minimum_nodes": 1,
+    "maximum_nodes": 3,
+    "plan": "VR2x2x25",
+    "contract_id": 7,
+    "location_id": 1
+  },
+  "state": {
+    "cluster_id": 42,
+    "package_id": 4,
+    "location": "Test location",
+    "pod_network": "10.20.0.0/16",
+    "service_network": "10.21.0.0/16",
+    "pod_cidr": "10.20.0.0/16",
+    "service_cidr": "10.21.0.0/16",
+    "status": "Healthy",
+    "do_autoscaling": false,
+    "do_dual_stack": false,
+    "high_availability": false,
+    "replicas": 1
+  }
+}

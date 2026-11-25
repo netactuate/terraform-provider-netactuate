@@ -33,6 +33,9 @@ func dataSourceNKEWorkerNodes() *schema.Resource {
 							Computed:    true,
 							Description: "The hostname of the worker node",
 						},
+						"public_ip_address":  {Type: schema.TypeString, Computed: true, Description: "Worker public IPv4 address."},
+						"private_ip_address": {Type: schema.TypeString, Computed: true, Description: "Worker private IPv4 address."},
+						"private_nic_state":  {Type: schema.TypeString, Computed: true, Description: "Private NIC state: none, pending, applied or failed."},
 						"status_ready": {
 							Type:        schema.TypeBool,
 							Computed:    true,
@@ -92,13 +95,14 @@ func dataSourceNKEWorkerNodesRead(ctx context.Context, d *schema.ResourceData, m
 			locationID = clusterLocationID
 		}
 		workerNodes = append(workerNodes, map[string]interface{}{
-			"worker_node_id": node.WorkerNodeID,
-			"name":           node.Name,
-			"status_ready":   node.Status.Ready,
-			"package_id":     node.Package.ID,
-			"package_name":   node.Package.Name,
-			"location_id":    locationID,
-			"location_name":  node.Location.Name,
+			"worker_node_id":    node.WorkerNodeID,
+			"name":              node.Name,
+			"status_ready":      node.Status.Ready,
+			"public_ip_address": node.PublicIPAddress, "private_ip_address": node.PrivateIPAddress, "private_nic_state": node.PrivateNICState,
+			"package_id":    node.Package.ID,
+			"package_name":  node.Package.Name,
+			"location_id":   locationID,
+			"location_name": node.Location.Name,
 		})
 	}
 

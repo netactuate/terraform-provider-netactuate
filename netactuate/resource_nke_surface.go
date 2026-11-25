@@ -74,16 +74,19 @@ func resourceNKEWorkerNode() *schema.Resource {
 		DeleteContext: resourceNKEWorkerNodeDelete,
 		Importer:      &schema.ResourceImporter{StateContext: resourceNKEWorkerNodeImport},
 		Schema: map[string]*schema.Schema{
-			"cluster_id":     {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "NKE cluster ID that owns the worker node."},
-			"worker_node_id": {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "NKE worker node ID."},
-			"label":          {Type: schema.TypeString, Optional: true, Description: "Worker node label."},
-			"tag_ids":        {Type: schema.TypeSet, Optional: true, Elem: &schema.Schema{Type: schema.TypeInt}, Description: "Tag IDs to apply to the worker node."},
-			"name":           {Type: schema.TypeString, Computed: true, Description: "Worker node name."},
-			"status_ready":   {Type: schema.TypeBool, Computed: true, Description: "Whether the worker node is ready."},
-			"package_id":     {Type: schema.TypeInt, Computed: true, Description: "Worker node package ID."},
-			"package_name":   {Type: schema.TypeString, Computed: true, Description: "Worker node package name."},
-			"location_id":    {Type: schema.TypeInt, Computed: true, Description: "Worker node location ID."},
-			"location_name":  {Type: schema.TypeString, Computed: true, Description: "Worker node location name."},
+			"cluster_id":         {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "NKE cluster ID that owns the worker node."},
+			"worker_node_id":     {Type: schema.TypeInt, Required: true, ForceNew: true, Description: "NKE worker node ID."},
+			"label":              {Type: schema.TypeString, Optional: true, Description: "Worker node label."},
+			"tag_ids":            {Type: schema.TypeSet, Optional: true, Elem: &schema.Schema{Type: schema.TypeInt}, Description: "Tag IDs to apply to the worker node."},
+			"name":               {Type: schema.TypeString, Computed: true, Description: "Worker node name."},
+			"public_ip_address":  {Type: schema.TypeString, Computed: true, Description: "Worker public IPv4 address."},
+			"private_ip_address": {Type: schema.TypeString, Computed: true, Description: "Worker private IPv4 address."},
+			"private_nic_state":  {Type: schema.TypeString, Computed: true, Description: "Private NIC state: none, pending, applied or failed."},
+			"status_ready":       {Type: schema.TypeBool, Computed: true, Description: "Whether the worker node is ready."},
+			"package_id":         {Type: schema.TypeInt, Computed: true, Description: "Worker node package ID."},
+			"package_name":       {Type: schema.TypeString, Computed: true, Description: "Worker node package name."},
+			"location_id":        {Type: schema.TypeInt, Computed: true, Description: "Worker node location ID."},
+			"location_name":      {Type: schema.TypeString, Computed: true, Description: "Worker node location name."},
 		},
 	}
 }
@@ -134,6 +137,10 @@ func setNKEWorkerNodeState(d *schema.ResourceData, node *gona.NKEWorkerNode) dia
 	setValue("worker_node_id", node.WorkerNodeID, d, &diags)
 	setValue("name", node.Name, d, &diags)
 	setValue("status_ready", node.Status.Ready, d, &diags)
+	setValue("public_ip_address", node.PublicIPAddress, d, &diags)
+	setValue("private_ip_address", node.PrivateIPAddress, d, &diags)
+	setValue("private_nic_state", node.PrivateNICState, d, &diags)
+
 	setValue("package_id", node.Package.ID, d, &diags)
 	setValue("package_name", node.Package.Name, d, &diags)
 	locationID := node.Location.ID
