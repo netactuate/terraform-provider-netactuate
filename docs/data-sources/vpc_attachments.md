@@ -31,3 +31,5 @@ data "netactuate_vpc_attachments" "example" {
 - `attachments` (List of Object) Each row exposes `attachment_id`, `type`, `address`, `cloud_router_id`, `vrf_id`, `description`, `accept`, `advertise`, `state`, and `state_message`. Prefix sets come from the individual attachment GET route.
 
 Data sources are read at refresh and are not imported.
+
+The computed `bgp` block is empty when BGP is disabled. Otherwise it contains `peer_asn`, `max_prefix`, `has_password`, `gateway_asn`, `gateway_address`, `peer_address`, `state`, `state_message` and `applied_on`. No password is returned. BGP requires vapi3 flag `enable-nke-bgp` and the account list `enable-nke-bgp-accounts`; reading attachments requires `vpc.read`.

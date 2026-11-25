@@ -13,6 +13,7 @@ import (
 
 func resourceVPCAttachment() *schema.Resource {
 	return &schema.Resource{CreateContext: resourceVPCAttachmentCreate, ReadContext: resourceVPCAttachmentRead, UpdateContext: resourceVPCAttachmentUpdate, DeleteContext: resourceVPCAttachmentDelete, Timeouts: drop2Timeouts(), Importer: &schema.ResourceImporter{StateContext: drop2Import("vpc_id", true, false)}, Schema: map[string]*schema.Schema{
+		"bgp":    drop3BGPSchema(false),
 		"vpc_id": drop2IDSchema(), "type": {Type: schema.TypeString, Required: true, ForceNew: true, ValidateDiagFunc: validation.ToDiagFunc(validation.StringInSlice([]string{"customer-router", "cloud-router"}, false))},
 		"address": {Type: schema.TypeString, Optional: true, Computed: true, ForceNew: true}, "cloud_router_id": {Type: schema.TypeInt, Optional: true, ForceNew: true}, "vrf_id": {Type: schema.TypeInt, Optional: true, ForceNew: true}, "description": {Type: schema.TypeString, Optional: true, ForceNew: true, ValidateDiagFunc: validation.ToDiagFunc(validation.StringLenBetween(0, 255))},
 		"accept":    {Type: schema.TypeSet, Required: true, MinItems: 1, MaxItems: 32, Elem: &schema.Schema{Type: schema.TypeString, ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR)}},
@@ -47,7 +48,7 @@ func drop2WaitAttachment(ctx context.Context, d *schema.ResourceData, c *gona.V3
 func resourceVPCAttachmentCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	v := d.Get("vpc_id").(int)
 	c := m.(*ProviderClients).V3
-	id, err := c.CreateVPCAttachment(v, &gona.CreateVPCAttachmentRequest{Type: d.Get("type").(string), Address: d.Get("address").(string), RouterID: d.Get("cloud_router_id").(int), VRFID: d.Get("vrf_id").(int), Description: d.Get("description").(string), Accept: drop2Strings(d, "accept"), Advertise: drop2Strings(d, "advertise")})
+	id, err := c.CreateVPCAttachment(v, &gona.CreateVPCAttachmentRequest{BGP: drop3ExpandBGP(d), Type: d.Get("type").(string), Address: d.Get("address").(string), RouterID: d.Get("cloud_router_id").(int), VRFID: d.Get("vrf_id").(int), Description: d.Get("description").(string), Accept: drop2Strings(d, "accept"), Advertise: drop2Strings(d, "advertise")})
 	if err != nil {
 		return drop2Error(err)
 	}
@@ -58,7 +59,7 @@ func resourceVPCAttachmentCreate(ctx context.Context, d *schema.ResourceData, m 
 	return resourceVPCAttachmentRead(ctx, d, m)
 }
 func flattenDrop2Attachment(r *gona.VPCAttachment) map[string]interface{} {
-	return map[string]interface{}{"type": r.Type, "address": r.Address, "cloud_router_id": r.RouterID, "vrf_id": r.VRFID, "description": r.Description, "accept": r.Accept, "advertise": r.Advertise, "state": r.State, "state_message": r.StateMessage}
+	return map[string]interface{}{"type": r.Type, "address": r.Address, "cloud_router_id": r.RouterID, "vrf_id": r.VRFID, "description": r.Description, "accept": r.Accept, "advertise": r.Advertise, "state": r.State, "state_message": r.StateMessage, "bgp": drop3FlattenBGP(r.BGP)}
 }
 func resourceVPCAttachmentRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	v, a, err := drop2AttachmentIDs(d)
@@ -72,8 +73,12 @@ func resourceVPCAttachmentRead(ctx context.Context, d *schema.ResourceData, m in
 	var diags diag.Diagnostics
 	setValue("vpc_id", v, d, &diags)
 	for k, val := range flattenDrop2Attachment(r) {
+		if k == "bgp" {
+			continue
+		}
 		setValue(k, val, d, &diags)
 	}
+	diags = append(diags, drop3ReadBGP(d, r.BGP)...)
 	return diags
 }
 
@@ -141,8 +146,13 @@ func resourceVPCAttachmentUpdate(ctx context.Context, d *schema.ResourceData, m 
 		return drop2Error(err)
 	}
 	c := m.(*ProviderClients).V3
-	if err = drop2SyncPrefixes(c, v, a, map[string][]string{"accept": drop2Strings(d, "accept"), "advertise": drop2Strings(d, "advertise")}); err != nil {
+	if err = drop3UpdateBGP(ctx, d, c, v, a); err != nil {
 		return drop2Error(err)
+	}
+	if d.HasChange("accept") || d.HasChange("advertise") {
+		if err = drop2SyncPrefixes(c, v, a, map[string][]string{"accept": drop2Strings(d, "accept"), "advertise": drop2Strings(d, "advertise")}); err != nil {
+			return drop2Error(err)
+		}
 	}
 	if err = drop2WaitAttachment(ctx, d, c, v, a, schema.TimeoutUpdate, false); err != nil {
 		return drop2Error(err)
