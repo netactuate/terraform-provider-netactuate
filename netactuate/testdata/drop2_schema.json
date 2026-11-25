@@ -602,7 +602,7 @@
       "Type": "TypeSet",
       "Optional": true,
       "Required": false,
-      "Computed": false,
+      "Computed": true,
       "ForceNew": false,
       "Default": null
     },
