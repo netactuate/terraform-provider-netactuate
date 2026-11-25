@@ -26,7 +26,7 @@ func drop3AccConfig(t *testing.T, kind, name string, step int) string {
 		if step > 0 {
 			name += "-renamed"
 		}
-		return fixture + fmt.Sprintf("\nresource \"netactuate_security_group\" \"test\" { name = %q\n description = \"Q40 lifecycle\" }\n", name)
+		return fixture + fmt.Sprintf("\nresource \"netactuate_security_group\" \"test\" {\n name = %q\n description = \"Q40 lifecycle\" \n}\n", name)
 	case "security_group_rule":
 		port := 443
 		if step > 0 {
@@ -62,15 +62,15 @@ resource "netactuate_security_group_member" "test" {
 }
 `, vpc, vm, vpc, vm)
 	case "vpc_security_group_enforcement":
-		return fixture + fmt.Sprintf("\nresource \"netactuate_vpc_security_group_enforcement\" \"test\" { vpc_id = %s\n enabled = true }\n", vpc)
+		return fixture + fmt.Sprintf("\nresource \"netactuate_vpc_security_group_enforcement\" \"test\" {\n vpc_id = %s\n enabled = true\n}\n", vpc)
 	case "vpc_subnet":
-		return fixture + fmt.Sprintf("\nresource \"netactuate_vpc_subnet\" \"test\" { vpc_id = %s\n network = \"172.31.251.0/24\"\n label = %q }\n", vpc, name)
+		return fixture + fmt.Sprintf("\nresource \"netactuate_vpc_subnet\" \"test\" {\n vpc_id = %s\n network = \"172.31.251.0/24\"\n label = %q\n}\n", vpc, name)
 	case "vpc_server_attachment":
-		return fixture + fmt.Sprintf("\nresource \"netactuate_vpc_server_attachment\" \"test\" { vpc_id = %s\n mbpkgid = %d\n subnet_id = 0 }\n", vpc, testAccEnvInt(t, "NETACTUATE_ACC_Q40_MBPKGID"))
+		return fixture + fmt.Sprintf("\nresource \"netactuate_vpc_server_attachment\" \"test\" {\n vpc_id = %s\n mbpkgid = %d\n subnet_id = 0\n}\n", vpc, testAccEnvInt(t, "NETACTUATE_ACC_Q40_MBPKGID"))
 	case "vpc_attachment":
 		bgp := ""
 		if step == 1 || step == 2 {
-			bgp = fmt.Sprintf("bgp { peer_asn = 65010\n max_prefix = %d }", 100+step)
+			bgp = fmt.Sprintf("bgp {\n peer_asn = 65010\n max_prefix = %d\n }", 100+step)
 		}
 		return fixture + fmt.Sprintf(`
 resource "netactuate_vpc_attachment" "test" {
@@ -225,7 +225,7 @@ func drop3AccRun(t *testing.T, kind string, oob bool) {
 			}})
 		}
 		if kind == "vpc_subnet" {
-			overlap := config + fmt.Sprintf("\nresource \"netactuate_vpc_subnet\" \"overlap\" { vpc_id = netactuate_vpc.test.vpc_id\n network = \"172.31.251.0/24\"\n label = %q\n depends_on = [netactuate_vpc_subnet.test] }\n", name+"-overlap")
+			overlap := config + fmt.Sprintf("\nresource \"netactuate_vpc_subnet\" \"overlap\" {\n vpc_id = netactuate_vpc.test.vpc_id\n network = \"172.31.251.0/24\"\n label = %q\n depends_on = [netactuate_vpc_subnet.test]\n}\n", name+"-overlap")
 			steps = append(steps, resource.TestStep{Config: overlap, ExpectError: regexp.MustCompile(`(?i)overlap`)}, resource.TestStep{Config: config})
 		}
 	}
