@@ -1,0 +1,708 @@
+{
+  "allow_list": {
+    "cluster_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries": {
+      "Type": "TypeList",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries.allow_list_entry_id": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries.network": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries.description": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries.owner": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries.created_on": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "entries.is_platform": {
+      "Type": "TypeBool",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    }
+  },
+  "attachments": {
+    "attachments": {
+      "Type": "TypeList",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "vpc_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.attachment_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.type": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.address": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.cloud_router_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.vrf_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.description": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.accept": {
+      "Type": "TypeSet",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.advertise": {
+      "Type": "TypeSet",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.state": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "attachments.state_message": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    }
+  },
+  "nke_cluster_api_access": {
+    "cluster_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "private_dns_name": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "private_endpoint_address": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "private_endpoint_enabled": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": false
+    },
+    "private_endpoint_state": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "public_enabled": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": true
+    },
+    "state": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    }
+  },
+  "nke_cluster_api_allow": {
+    "cidr": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "cluster_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "label": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    }
+  },
+  "nke_cluster_private_network": {
+    "cluster_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "nodes_requiring_roll": {
+      "Type": "TypeList",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "state": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "vpc_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    }
+  },
+  "reservations": {
+    "gateways": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "interfaces": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reservations": {
+      "Type": "TypeList",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "type": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "vms": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "vpc_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reservations.ip_reservation_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reservations.address": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reservations.description": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reservations.reserved_on": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reservations.in_use": {
+      "Type": "TypeBool",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    }
+  },
+  "vpc": {
+    "allow_api_access": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "bastion_enabled": {
+      "Type": "TypeBool",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "bastion_ipv4": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "bastion_ipv6": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "bastion_port": {
+      "Type": "TypeInt",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "description": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "enable_default_snat": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "firewall_ipv4_inbound": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "firewall_ipv4_outbound": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": false
+    },
+    "firewall_ipv6_inbound": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "firewall_ipv6_outbound": {
+      "Type": "TypeBool",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": false
+    },
+    "http_loadbalancer_count": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "http_loadbalancer_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "label": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "location": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "location_id": {
+      "Type": "TypeInt",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "max_floating_ipv4s": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "nameservers_ipv4": {
+      "Type": "TypeList",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "nameservers_ipv6": {
+      "Type": "TypeList",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "network_ipv4": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "network_ipv6": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "network_loadbalancer_count": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "network_loadbalancer_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "status": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "used_floating_ipv4s": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "vpc_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    }
+  },
+  "vpc_attachment": {
+    "accept": {
+      "Type": "TypeSet",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "address": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "advertise": {
+      "Type": "TypeSet",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": false,
+      "Default": null
+    },
+    "cloud_router_id": {
+      "Type": "TypeInt",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "description": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "state": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "state_message": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "type": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "vpc_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "vrf_id": {
+      "Type": "TypeInt",
+      "Optional": true,
+      "Required": false,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    }
+  },
+  "vpc_ip_reservation": {
+    "address": {
+      "Type": "TypeString",
+      "Optional": true,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": true,
+      "Default": null
+    },
+    "description": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    },
+    "in_use": {
+      "Type": "TypeBool",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "reserved_on": {
+      "Type": "TypeString",
+      "Optional": false,
+      "Required": false,
+      "Computed": true,
+      "ForceNew": false,
+      "Default": null
+    },
+    "vpc_id": {
+      "Type": "TypeInt",
+      "Optional": false,
+      "Required": true,
+      "Computed": false,
+      "ForceNew": true,
+      "Default": null
+    }
+  }
+}

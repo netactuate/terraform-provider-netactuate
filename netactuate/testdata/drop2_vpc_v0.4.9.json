@@ -1,0 +1,35 @@
+{
+  "ID": "1",
+  "Config": {
+    "label": "legacy-vpc",
+    "description": "legacy",
+    "location_id": 1
+  },
+  "State": {
+    "id": "1",
+    "vpc_id": "1",
+    "label": "legacy-vpc",
+    "description": "legacy",
+    "location_id": "1",
+    "location": "test",
+    "status": "Running",
+    "firewall_ipv4_outbound": "false",
+    "firewall_ipv6_outbound": "false",
+    "nameservers_ipv4.#": "0",
+    "nameservers_ipv6.#": "0"
+  },
+  "Response": {
+    "vpcId": 1,
+    "metadata": {
+      "label": "legacy-vpc",
+      "description": "legacy",
+      "status": "Running"
+    },
+    "location": {
+      "id": 1,
+      "name": "test"
+    },
+    "maxFloatingIpv4s": 20,
+    "usedFloatingIpv4s": 3
+  }
+}

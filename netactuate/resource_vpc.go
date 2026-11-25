@@ -36,6 +36,8 @@ func resourceVPC() *schema.Resource {
 			return nil
 		},
 		Schema: map[string]*schema.Schema{
+			"max_floating_ipv4s":  vpcQ31CountSchema(),
+			"used_floating_ipv4s": vpcQ31CountSchema(),
 			"vpc_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
@@ -305,6 +307,7 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 
 	var diags diag.Diagnostics
 
+	readVPCQ31(d, vpc, &diags)
 	setValue("vpc_id", vpc.VPCID, d, &diags)
 	setValue("bastion_ipv4", vpc.Bastion.Addresses.IPv4, d, &diags)
 	setValue("bastion_ipv6", vpc.Bastion.Addresses.IPv6, d, &diags)
