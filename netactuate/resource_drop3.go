@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/netactuate/gona/gona"
 	"strconv"
+	"strings"
 )
 
 func drop3Optional(t schema.ValueType, immutable bool) *schema.Schema {
@@ -102,7 +103,7 @@ func resourceSecurityGroupRule() *schema.Resource {
 	fields := map[string]*schema.Schema{
 		"security_group_id": drop2IDSchema(), "ip_version": {Type: schema.TypeInt, Required: true, ForceNew: true, ValidateFunc: validation.IntInSlice([]int{4, 6})},
 		"direction": {Type: schema.TypeString, Optional: true, Default: "inbound", ForceNew: true, ValidateFunc: validation.StringInSlice([]string{"inbound"}, false)},
-		"protocol":  {Type: schema.TypeString, Optional: true, Computed: true, ForceNew: true}, "port_start": {Type: schema.TypeInt, Optional: true, ForceNew: true, RequiredWith: []string{"port_end"}, ValidateFunc: validation.IntBetween(1, 65535)}, "port_end": {Type: schema.TypeInt, Optional: true, ForceNew: true, RequiredWith: []string{"port_start"}, ValidateFunc: validation.IntBetween(1, 65535)},
+		"protocol":  {Type: schema.TypeString, Optional: true, Computed: true, ForceNew: true, DiffSuppressFunc: protocolCaseInsensitive}, "port_start": {Type: schema.TypeInt, Optional: true, ForceNew: true, RequiredWith: []string{"port_end"}, ValidateFunc: validation.IntBetween(1, 65535)}, "port_end": {Type: schema.TypeInt, Optional: true, ForceNew: true, RequiredWith: []string{"port_start"}, ValidateFunc: validation.IntBetween(1, 65535)},
 		"network":                  {Type: schema.TypeString, Optional: true, ForceNew: true, ExactlyOneOf: []string{"network", "source_security_group_id"}, ValidateFunc: validation.IsCIDR},
 		"source_security_group_id": {Type: schema.TypeInt, Optional: true, ForceNew: true, ExactlyOneOf: []string{"network", "source_security_group_id"}, ValidateFunc: validation.IntAtLeast(1)}, "description": drop3Optional(schema.TypeString, true)}
 	return &schema.Resource{Schema: fields, CreateContext: drop3RuleCreate, ReadContext: drop3RuleRead, DeleteContext: drop3RuleDelete, Timeouts: drop2Timeouts(), Importer: &schema.ResourceImporter{StateContext: drop2Import("security_group_id", true, false)}}
@@ -335,4 +336,9 @@ func drop3ServerDelete(ctx context.Context, d *schema.ResourceData, m interface{
 		return drop2Error(e)
 	}
 	return drop3DeleteResult(d, m.(*ProviderClients).V3.DetachVPCServer(v, id))
+}
+
+// protocolCaseInsensitive keeps a configured "tcp" from replacing a rule the API reads back as "TCP" (LD-241).
+func protocolCaseInsensitive(_, old, new string, _ *schema.ResourceData) bool {
+	return strings.EqualFold(old, new)
 }

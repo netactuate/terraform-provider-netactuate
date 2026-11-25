@@ -420,3 +420,10 @@ func TestDrop3Validation(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityGroupRuleProtocolCaseInsensitive(t *testing.T) {
+	f := resourceSecurityGroupRule().Schema["protocol"].DiffSuppressFunc
+	if f == nil || !f("protocol", "TCP", "tcp", nil) || f("protocol", "UDP", "tcp", nil) {
+		t.Fatal("protocol must compare case-insensitively and still see a real change (LD-241)")
+	}
+}
