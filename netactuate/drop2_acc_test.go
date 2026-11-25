@@ -118,7 +118,7 @@ func drop2AccConfig(kind, name string, named, updated bool) string {
 	case "nke_cluster_api_allow":
 		return fmt.Sprintf(`resource "netactuate_nke_cluster_api_allow" "test" {
  cluster_id = netactuate_nke_cluster.test.cluster_id
- cidr = "192.0.2.0/24"
+ cidr = "1.1.1.1/32"
  label = %q
 }
 data "netactuate_nke_cluster_api_allow_list" "test" {
@@ -132,14 +132,14 @@ data "netactuate_nke_cluster_api_allow_list" "test" {
  private_endpoint_enabled = %t
 }`, updated, !updated)
 	case "vpc_attachment":
-		prefix := "192.0.2.0/24"
+		prefix := "192.168.50.0/24"
 		if updated {
-			prefix = "198.51.100.0/24"
+			prefix = "192.168.51.0/24"
 		}
 		return fmt.Sprintf(`resource "netactuate_vpc_attachment" "test" {
  vpc_id = netactuate_vpc.test.vpc_id
  type = "customer-router"
- address = "10.77.0.2"
+ address = "10.77.0.20"
  description = %q
  accept = [%q]
 }
@@ -316,7 +316,7 @@ func drop2AccRun(t *testing.T, kind string, oob, named bool) {
 		}
 		steps = append(steps, resource.TestStep{ResourceName: address, ImportState: true, ImportStateVerify: true}, resource.TestStep{Config: config, PlanOnly: true, ExpectNonEmptyPlan: false})
 		if kind == "vpc_attachment" {
-			overlap := strings.Replace(config, "198.51.100.0/24", "10.77.0.0/24", 1)
+			overlap := strings.Replace(config, "192.168.51.0/24", "10.77.0.0/24", 1)
 			steps = append(steps, resource.TestStep{Config: overlap, ExpectError: regexp.MustCompile(`(?i)overlap`)}, resource.TestStep{Config: config, Check: check})
 		}
 	}
